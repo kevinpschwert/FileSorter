@@ -4,53 +4,6 @@ using System.Xml.Serialization;
 
 namespace FileSorter.Entities
 {
-    //public class ExportFileMetadata
-    //{
-    //[XmlElement("BusinessUnit")]
-    //public string? BusinessUnit { get; set; }
-
-
-    //[XmlElement("BusinessUnitGuid")]
-    //public Guid? BusinessUnitGuid { get; set; }
-
-
-    //[XmlElement("BusinessUnitIntID")]
-    //public int? BusinessUnitIntID { get; set; }
-
-
-    //[XmlElement("CheckInDate")]
-    //public string? CheckInDate { get; set; }
-
-
-    //[XmlElement("CheckOutDate")]
-    //public string? CheckOutDate { get; set; }
-
-
-    //[XmlElement("CheckedOutUser")]
-    //public string? CheckedOutUser { get; set; }
-
-
-    //[XmlElement("CheckedOutUserName")]
-    //public string? CheckedOutUserName { get; set; }
-
-
-    //[XmlElement("Class")]
-    //public string? Class { get; set; }
-
-
-    //[XmlElement("ClassIntID")]
-    //public int? ClassIntID { get; set; }
-
-
-    //[XmlElement("ClientID")]
-    //public int? ClientID { get; set; }
-
-
-    //[XmlElement("CreatedBy")]
-    //public int? CreatedBy { get; set; }
-    //}
-    //}
-
     [Table("ClientFiles")]
     public class ClientFiles
     {
