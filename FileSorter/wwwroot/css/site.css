@@ -1,0 +1,302 @@
+﻿html {
+    font-size: 14px;
+}
+
+@media (min-width: 768px) {
+    html {
+        font-size: 16px;
+    }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+    position: relative;
+    min-height: 100%;
+}
+
+body {
+    margin-bottom: 60px;
+}
+
+/*#drop-area {
+    border: 2px dashed #ccc;
+    border-radius: 20px;
+    width: 480px;
+    font-family: sans-serif;
+    padding: 20px;
+}
+
+    #drop-area.highlight {
+        border-color: purple;
+    }
+
+p {
+    margin-top: 0;
+}
+
+#dropAreaDiv {
+    margin-top: 3rem;
+    background-color: #c9f1f1;
+    padding: 1rem 0;
+    position: relative;
+}
+
+.my-form {
+    margin-bottom: 10px;
+}
+
+#gallery {
+    margin-top: 10px;
+}
+
+    #gallery img {
+        width: 150px;
+        margin-bottom: 10px;
+        margin-right: 10px;
+        vertical-align: middle;
+    }
+
+.button {
+    display: inline-block;
+    padding: 10px;
+    background: #ccc;
+    cursor: pointer;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+    .button:hover {
+        background: #ddd;
+    }
+
+#fileElem {
+    display: none;
+}
+
+.file-name {
+    padding-bottom: 0.3rem;
+}
+
+#uploadFilesDiv {
+    display: none;
+}
+
+#uploadFilesDiv p {
+    font-size: 17px;
+    text-decoration: underline;
+}
+
+
+
+.active, .accordion:hover {
+    background-color: #ccc;
+}
+
+#uploadFiles {
+    display: block;
+}
+
+
+
+
+#uploadFilesBtn {
+    margin-top: 2rem;
+}
+
+.folder-structure-row {
+    background-color: #efefef;
+    padding: 3rem 0;
+}*/
+
+
+/* General Styles */
+#cwImg img {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 20px;
+}
+
+/* Drop Area Styles */
+#drop-area {
+    border: 2px dashed #004F63;
+    background-color: #F4F4F4;
+    padding: 30px;
+    border-radius: 10px;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+#drop-area:hover {
+    background-color: #E6F7FA; /* Light teal shade for hover effect */
+    border-color: #003F51;
+}
+
+.my-form p {
+    font-size: 16px;
+    color: #004F63;
+    margin-bottom: 20px;
+}
+
+#formError {
+    font-size: 18px;
+    color: red;
+    display: none;
+}
+
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    font-size: 16px;
+    color: white;
+    background-color: #004F63;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.button:hover {
+    background-color: #003F51;
+}
+
+#fileElem {
+    display: none;
+}
+
+/* Uploaded Files List Styles */
+#uploadFilesDiv {
+    background-color: #F4F4F4;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #004F63;
+    height: 100%;
+}
+
+#uploadFilesDiv p {
+    font-size: 16px;
+    color: #004F63;
+    margin-bottom: 10px;
+}
+
+#uploadFiles {
+    list-style: none;
+    padding-left: 0;
+}
+
+#uploadFiles li {
+    background-color: #E6F7FA;
+    margin: 5px 0;
+    padding: 10px;
+    border-radius: 5px;
+    color: #333;
+}
+
+/* Upload Button Styles */
+#uploadFilesBtn {
+    background-color: #004F63;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 1rem;
+}
+
+#uploadFilesBtn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#uploadFilesBtn:not(:disabled):hover {
+    background-color: #003F51;
+}
+
+#dropAreaDiv {
+    margin-top: 3rem;
+    background-color: #c9f1f1;
+    padding: 1rem 0;
+    position: relative;
+}
+
+#spinner {
+    position: absolute;
+    left: 50%;
+    display: none;
+    bottom: -29%;
+}
+
+#spinner img {
+    width: 3rem;
+}
+
+#folderStructure {
+    padding-top: 2rem;
+}
+
+/* Accordion Styles */
+.accordion {
+    background-color: #004F63; /* Dark teal for a professional look */
+    color: white;
+    cursor: pointer;
+    padding: 20px;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 16px;
+    transition: 0.4s;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+    .accordion:hover {
+        background-color: #003F51; /* Slightly darker teal on hover */
+    }
+
+/* Panel Styles */
+.panel {
+    background-color: #F4F4F4; /* Light grey for a clean contrast */
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+    border-radius: 0 0 5px 5px;
+    border: 1px solid #004F63;
+    border-top: none;
+}
+
+    .panel p {
+        padding: 10px 20px;
+        border-bottom: 1px solid #ccc;
+        margin: 0;
+        color: #333;
+    }
+
+        /* Panel content styles */
+        .panel p:last-child {
+            border-bottom: none;
+        }
+
+/* Optional: Accordion Arrow Indicator */
+.accordion:after {
+    content: '\002B'; /* Unicode for "plus" sign (+) */
+    color: white;
+    font-weight: bold;
+    float: right;
+    margin-left: 5px;
+}
+
+.accordion.active:after {
+    content: "\2212"; /* Unicode for "minus" sign (−) */
+}
+
+.client-name {
+    font-weight: 500;
+}
+
+.year {
+    text-decoration: underline;
+}

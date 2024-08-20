@@ -1,0 +1,52 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+@* <script src="/_framework/aspnetcore-browser-refresh.js"></script> *@
+
+<div id="cwImg" class="row">
+    <div class="col-md-9 offset-md-3">
+        <img src="~/images/cain-watters-logo-new-2012verysmall.png" />
+    </div>
+</div>
+<div id="dropAreaDiv" class="row">
+    <div class="col-md-12">
+        <div class="row">
+            <div class="col-md-3 offset-md-3">
+                <div id="drop-area">
+                    <form class="my-form">
+                        <p>Upload multiple Zipped Folders by clicking the button or by dragging and dropping the Zipped Folders onto the dashed region.</p>
+                        <input type="file" id="fileElem" multiple accept="folder/*" onchange="handleFiles(this.files)">
+                        <label class="button" for="fileElem">Select some files</label>
+                        <p id="formError">You must insert a zip file to upload</p>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div id="uploadFilesDiv">
+                    <p>Folders to be Uploaded:</p>
+                    <div id="uploadFiles"></div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-9 offset-md-3">
+                <input id="xmlFile" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-9 offset-md-3">
+                <button id="uploadFilesBtn" disabled onclick="uploadFiles()">Upload</button>
+            </div>
+        </div>
+    </div>
+    <div id="spinner">
+        <img src="~/images/hourglass.gif" />
+    </div>
+</div>
+
+<div class="row folder-structure" id="folderStructure"></div>
+
+<button onclick="deleteFolders()">Delete</button>
+
+
