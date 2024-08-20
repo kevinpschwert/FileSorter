@@ -1,5 +1,6 @@
 using FileSorter.Data;
 using FileSorter.Helpers;
+using FileSorter.Interfaces;
 using FileSorter.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
@@ -11,12 +12,14 @@ namespace FileSorter.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly DBContext _db;
         private readonly IConfiguration _configuration;
+        private readonly IUnzipFiles _unzipFiles;
 
-        public HomeController(ILogger<HomeController> logger, DBContext db, IConfiguration configuration)
+        public HomeController(ILogger<HomeController> logger, DBContext db, IConfiguration configuration, IUnzipFiles unzipFiles)
         {
             _logger = logger;
             _db = db;
             _configuration = configuration;
+            _unzipFiles = unzipFiles;
         }
 
         public IActionResult Index()
@@ -27,15 +30,13 @@ namespace FileSorter.Controllers
         [HttpPost]
         public IActionResult UploadFiles([FromBody] ClientFileInfo fileInfo)
         {
-            UnzipFiles unzipFiles = new UnzipFiles(_db, _configuration);
-            var data = unzipFiles.ExtractActualData(fileInfo);
+            var data = _unzipFiles.ExtractData(fileInfo);
             return PartialView("~/Views/Home/Partials/GroupedClientData.cshtml", data);
         }
 
         public Object DeleteFolders()
         {
-            UnzipFiles unzipFiles = new UnzipFiles(_db, _configuration);
-            unzipFiles.DeleteActualFolders();
+            _unzipFiles.DeleteFolders();
             return Ok("success");
         }
 

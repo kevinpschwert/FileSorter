@@ -1,4 +1,6 @@
 using FileSorter.Data;
+using FileSorter.Helpers;
+using FileSorter.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<IUnzipFiles, UnzipFiles>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

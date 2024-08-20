@@ -39,10 +39,6 @@ namespace FileSorter.Helpers
 
         public async Task UploadFolder(string folderPath, string documentLibraryName)
         {
-            var clientId = "3d2efefc-a974-4368-96fa-0eab13e089a6";
-            var clientSecret = "72dfUS31Zwmv336XD/SDctwdSEUpRwElH48PaDkGpFA=";
-            var tenantId = "2f04e064-ae07-4035-ab5f-aa54ef97a585";
-
             var TokenEndpoint = _configuration["SharePointOnline:TokenEndpoint"];
             var ClientID = _configuration["SharePointOnline:client_id"];
             var ClientSecret = _configuration["SharePointOnline:client_secret"];
@@ -283,23 +279,6 @@ namespace FileSorter.Helpers
         //        }
         //    }
         //    return null;
-        //}
-    }
-
-    class Program
-    {
-        //static void Main(string[] args)
-        //{
-        //    string siteUrl = "https://zealitconsulltants.sharepoint.com/sites/Test";
-        //    string username = "KevinSchwert@ZealITConsulltants.onmicrosoft.com";
-        //    string password = "1th@nkGod";
-        //    string localFolderPath = @"C:\Users\kevin\OneDrive\Desktop\NewClientIdData";
-        //    string documentLibraryName = "ConsolidateData";
-
-        //    SharePointUploader uploader = new SharePointUploader(siteUrl, username, password);
-        //    uploader.UploadFolder(localFolderPath, documentLibraryName);
-
-        //    Console.WriteLine("All files uploaded successfully.");
         //}
     }
 

@@ -7,18 +7,34 @@
             {
                 <div class="col-md-4">
                     <p class="client-name"><b>@folder.EntityName</b></p>
-                    @foreach (var year in folder.Years)
+                    @foreach (var client in folder.Clients)
                     {
-                        int counter = 0;
-                        <button class="year accordion">@year.Year</button>
+                        int counter = 1;
+                        <button class="year accordion">@client.ClassName</button>
                         <div class="file panel">
-                            @foreach (var file in year.FileName)
+                            @foreach (var sc in client.SubClasses)
                             {
-                                <p>@counter - @file</p>
-                                counter++;
+                                <p>@sc.SubClassName</p>
+                                @foreach (var file in sc.FileName)
+                                {
+                                    <p>@counter - @file</p>
+                                    counter++;
+                                }
+                            }
+                            @foreach (var year in client.Years)
+                            {
+                                <p class="sub-class">@year.Year</p>
+                                @foreach (var sc in year.SubClasses)
+                                {
+                                    <p>@sc.SubClassName</p>
+                                    @foreach (var file in sc.FileName)
+                                    {
+                                        <p>@counter - @file</p>
+                                        counter++;
+                                    }
+                                }
                             }
                         </div>
-
                     }
                 </div>
             }
