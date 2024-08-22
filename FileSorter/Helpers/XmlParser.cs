@@ -24,7 +24,10 @@ namespace FileSorter.Helpers
 
             doc.Load(xmlFilePath);
             string xmlcontents = doc.InnerXml;
-            xmlcontents = xmlcontents.Replace("?", "_");
+            foreach (var c in ReplaceChars())
+            {
+                xmlcontents = xmlcontents.Replace(c.Key, c.Value);
+            }
 
             XmlSerializer serializer = new XmlSerializer(typeof(ArrayOfExportFileMetadata));
 
@@ -53,6 +56,17 @@ namespace FileSorter.Helpers
             {
                 return (T)serializer.Deserialize(reader);
             }
+        }
+
+        private static Dictionary<string, string> ReplaceChars()
+        {
+            return new Dictionary<string, string>
+            {
+                { "?", "_" },
+                { "’", "'" },
+                { "", "_" },
+                { "·", "�" }
+            };
         }
     }
 }

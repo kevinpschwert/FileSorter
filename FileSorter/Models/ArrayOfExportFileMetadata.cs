@@ -7,6 +7,6 @@ namespace FileSorter.Models
     public class ArrayOfExportFileMetadata
     {
         [XmlElement("ExportFileMetadata")]
-        public List<ClientFiles> ClientFiles { get; set; }
+        public List<ClientFiles> ClientFiles { get; set; } = new List<ClientFiles>();
     }
 }

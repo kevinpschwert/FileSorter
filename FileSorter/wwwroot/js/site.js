@@ -60,11 +60,11 @@ function handleFiles(files) {
 }
 
 function uploadFiles() {
-    var xmlFile = document.getElementById('xmlFile');
-    var fileInfo = {
-        files: fileArr,
-        metadata: xmlFile.value
-    }
+    //var xmlFile = document.getElementById('xmlFile');
+    //var fileInfo = {
+    //    files: fileArr,
+    //    metadata: xmlFile.value
+    //}
     var url = 'YOUR URL HERE'
     var xhr = new XMLHttpRequest()
     var formData = new FormData()
@@ -87,7 +87,7 @@ function uploadFiles() {
         "url": '/Home/UploadFiles/',
         "dataType": "html",
         "contentType": "application/json",
-        "data": JSON.stringify(fileInfo),
+        "data": JSON.stringify(fileArr),
         "success": function (data) {
             $("#folderStructure").html(data);
             accordian();
@@ -123,14 +123,4 @@ function accordian() {
 function loadSpinner() {
     var spinner = document.getElementById('spinner');
     spinner.style.display = "block";
-}
-
-function deleteFolders() {
-    $.ajax({
-        "type": "POST",
-        "url": '/Home/DeleteFolders/',
-        "dataType": "html",
-        "contentType": "application/json",
-        "data": []
-    });
 }

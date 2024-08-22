@@ -28,16 +28,10 @@ namespace FileSorter.Controllers
         }
 
         [HttpPost]
-        public IActionResult UploadFiles([FromBody] ClientFileInfo fileInfo)
+        public IActionResult UploadFiles([FromBody] List<string> files)
         {
-            var data = _unzipFiles.ExtractData(fileInfo);
+            var data = _unzipFiles.ExtractData(files);
             return PartialView("~/Views/Home/Partials/GroupedClientData.cshtml", data);
-        }
-
-        public Object DeleteFolders()
-        {
-            _unzipFiles.DeleteFolders();
-            return Ok("success");
         }
 
         public IActionResult Privacy()

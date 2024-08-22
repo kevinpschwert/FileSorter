@@ -1,7 +1,9 @@
-﻿using FileSorter.Data;
+﻿using FileSorter.Cached.Interfaces;
+using FileSorter.Data;
 using FileSorter.Entities;
 using FileSorter.Interfaces;
 using FileSorter.Models;
+using System.IO.Compression;
 
 namespace FileSorter.Helpers
 {
@@ -9,41 +11,61 @@ namespace FileSorter.Helpers
     {
         private readonly DBContext _db;
         private readonly IConfiguration _configuration;
+        private readonly IFileConsolidator _fileConsolidator;
 
-        public UnzipFiles(DBContext db, IConfiguration configuration)
+        public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator)
         {
             _db = db;
             _configuration = configuration;
+            _fileConsolidator = fileConsolidator;
         }
 
-        public List<GroupedData> ExtractData(ClientFileInfo fileInfo)
+        public List<GroupedData> ExtractData(List<string> zipFiles)
         {
-            string extractPath = "C:\\Users\\kevin\\OneDrive\\Desktop\\CainWattersTestClients";
-            string xmlFilePath = Path.Combine(extractPath, $"{fileInfo.Metadata}.xml");
+            string extractPath = "C:\\Users\\kevin\\ExportClients";
             string destinationPath = Path.Combine(extractPath, "ConsolidateData");
-            bool isFileLocked = true;
+            List<ClientFiles> clientFileList = new List<ClientFiles>();
+            var files = new ArrayOfExportFileMetadata();
 
             // Step 1: Unzip the files
-            foreach (var zippedFile in fileInfo.Files)
+            foreach (var zippedFile in zipFiles)
             {
                 try
                 {
+                    string xmlFilePath = string.Empty;
                     string zipFilePath = $"{extractPath}\\{zippedFile}.zip";
+                    using var openZip = ZipFile.OpenRead(zipFilePath);
+                    var xmlFile = openZip.Entries.Where(x => x.Name.Contains("Metadata")) ?? null;
                     FileInfo fileInfor1 = new FileInfo(zipFilePath);
                     Unzipper.UnzipFiles(zipFilePath, extractPath);
-                    while (IsFileLocked(fileInfor1)) { }
+                    if (xmlFile != null)
+                    {
+                        xmlFilePath = Path.Combine(extractPath, $"{xmlFile.FirstOrDefault().FullName}");
+                        XmlParser xmlParser = new XmlParser(_db);
+                        files = xmlParser.ParseClientXml(xmlFilePath);
+                    }
+                    else
+                    {
+                        throw new Exception("There is no XML file in this zipped folder");
+                    }
+
+                    _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
+                    // bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
+                    clientFileList.AddRange(files.ClientFiles);
+                    Directory.Delete($"{extractPath}\\{zippedFile}", true);
+                    var di = new DirectoryInfo(extractPath);
+                    var xmlFileToDelete = di.GetFiles().FirstOrDefault(x => x.Name == xmlFile.FirstOrDefault().FullName);
+                    xmlFileToDelete.Delete();
+                    //while (IsFileLocked(fileInfor1)) { }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message);
+                    throw new Exception(ex.Message);
                 }
             }
 
-            // Step 2: Parse the XML file
-            XmlParser xmlParser = new XmlParser(_db);
-            var files = xmlParser.ParseClientXml(xmlFilePath);
 
-            var groupedClientData = files.ClientFiles
+            var groupedClientData = clientFileList
               .GroupBy(f => f.EntityName)
               .Select(g => new GroupedData
               {
@@ -77,9 +99,6 @@ namespace FileSorter.Helpers
               })
               .ToList();
 
-            FileConsolidator.ConsolidateFiles(destinationPath, files, fileInfo.Files);
-            bool isValid = FileConsolidator.ValidateConsolidatedFiles(destinationPath, files, fileInfo.Files);
-
             //if (isValid)
             //{
             //    try
@@ -94,16 +113,6 @@ namespace FileSorter.Helpers
             //}
 
             return groupedClientData;
-        }
-
-        public void DeleteFolders()
-        {
-            Directory.Delete("C:\\Users\\kevin\\OneDrive\\Desktop\\CainWattersTestClients\\Test1", true);
-            var di = new DirectoryInfo("C:\\Users\\kevin\\OneDrive\\Desktop\\CainWattersTestClients\\ConsolidateData");
-            foreach (FileInfo file in di.GetFiles())
-            {
-                file.Delete();
-            }
         }
 
         private async Task UploadToSharePoint()
