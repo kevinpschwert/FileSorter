@@ -104,7 +104,6 @@ namespace FileSorter.Helpers
                   }).ToList()
               })
               .ToList();
-
             //if (isValid)
             //{
             //    try
