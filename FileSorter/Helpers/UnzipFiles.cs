@@ -117,6 +117,7 @@ namespace FileSorter.Helpers
             //        DeleteFolders();
             //    }
             //}
+
             sw.Stop();
             var time = sw.Elapsed.TotalSeconds;
             
