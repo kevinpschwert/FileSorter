@@ -16,5 +16,7 @@ namespace FileSorter.Data
         public DbSet<FolderMapping> FolderMappings { get; set; }
         
         public DbSet<FileStatus> FileStatuses { get; set; }
+
+        public DbSet<ClientLogging> ClientLoggings { get; set; }
     }
 }

@@ -5,45 +5,56 @@ using FileSorter.Data;
 using System.Xml.Linq;
 using System.Text;
 using FileSorter.Entities;
+using FileSorter.Logging.Interfaces;
 
 namespace FileSorter.Helpers
 {
     public class XmlParser
     {
         private readonly DBContext _db;
+        private readonly ILogging _logging;
 
-        public XmlParser(DBContext db)
+        public XmlParser(DBContext db, ILogging logging)
         {
             _db = db;
+            _logging = logging;
         }        
 
         public ArrayOfExportFileMetadata ParseClientXml(string xmlFilePath)
         {
-            ArrayOfExportFileMetadata result = new ArrayOfExportFileMetadata();
-            XmlDocument doc = new XmlDocument();
-
-            doc.Load(xmlFilePath);
-            string xmlcontents = doc.InnerXml;
-            foreach (var c in ReplaceChars())
+            try
             {
-                xmlcontents = xmlcontents.Replace(c.Key, c.Value);
+                ArrayOfExportFileMetadata result = new ArrayOfExportFileMetadata();
+                XmlDocument doc = new XmlDocument();
+
+                doc.Load(xmlFilePath);
+                string xmlcontents = doc.InnerXml;
+                foreach (var c in ReplaceChars())
+                {
+                    xmlcontents = xmlcontents.Replace(c.Key, c.Value);
+                }
+
+                XmlSerializer serializer = new XmlSerializer(typeof(ArrayOfExportFileMetadata));
+
+                XmlSerializerNamespaces namespaces = new XmlSerializerNamespaces();
+                namespaces.Add("i", "http://www.w3.org/2001/XMLSchema-instance");
+
+                using (StringReader reader = new StringReader(xmlcontents))
+                {
+                    result = (ArrayOfExportFileMetadata)serializer.Deserialize(reader);
+                }
+
+                var orderedFiles = result.ClientFiles.OrderBy(x => x.EntityName).ThenBy(y => y.Year);
+                orderedFiles.ToList().ForEach(y => y.CreateDate = DateTime.Now);
+                _db.BulkInsert(orderedFiles);
+
+                return result;
             }
-
-            XmlSerializer serializer = new XmlSerializer(typeof(ArrayOfExportFileMetadata));
-
-            XmlSerializerNamespaces namespaces = new XmlSerializerNamespaces();
-            namespaces.Add("i", "http://www.w3.org/2001/XMLSchema-instance");
-
-            using (StringReader reader = new StringReader(xmlcontents))
+            catch (Exception ex)
             {
-                result = (ArrayOfExportFileMetadata)serializer.Deserialize(reader);
+                _logging.Log(ex.Message, null,null);
+                throw;
             }
-
-            var orderedFiles = result.ClientFiles.OrderBy(x => x.EntityName).ThenBy(y => y.Year);
-            orderedFiles.ToList().ForEach(y => y.CreateDate = DateTime.Now);
-            _db.BulkInsert(orderedFiles);
-
-            return result;
         }
 
         static T DeserializeXmlString<T>(string xmlString)

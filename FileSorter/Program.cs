@@ -3,6 +3,8 @@ using FileSorter.Cached.Models;
 using FileSorter.Data;
 using FileSorter.Helpers;
 using FileSorter.Interfaces;
+using FileSorter.Logging.Interfaces;
+using FileSorter.Logging.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Data.Entity;
 
@@ -13,6 +15,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IUnzipFiles, UnzipFiles>();
 builder.Services.AddScoped<IFileConsolidator, FileConsolidator>();
+builder.Services.AddScoped<ILogging, Logging>();
 builder.Services.AddSingleton<ICachedService, CachedService>();
 var app = builder.Build();
 

@@ -2,6 +2,7 @@
 using FileSorter.Common;
 using FileSorter.Data;
 using FileSorter.Entities;
+using FileSorter.Logging.Interfaces;
 using FileSorter.Models;
 
 namespace FileSorter.Helpers
@@ -10,19 +11,25 @@ namespace FileSorter.Helpers
     {
         private readonly ICachedService _cachedService;
         private readonly DBContext _db;
+        private readonly ILogging _logging;
 
-        public FileConsolidator(ICachedService cachedService, DBContext db)
+        public FileConsolidator(ICachedService cachedService, DBContext db, ILogging logging)
         {
             _cachedService = cachedService;
             _db = db;
+            _logging = logging;
         }
 
         public void ConsolidateFiles(string destinationPath, ArrayOfExportFileMetadata files, string unzipped)
         {
-            try
+            string fileName = string.Empty;
+            string clientFile = string.Empty;
+            foreach (var file in files.ClientFiles)
             {
-                foreach (var file in files.ClientFiles)
+                try
                 {
+                    fileName = file.FileName;
+                    clientFile = file.EntityName;
                     var folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == file.Class && x.Subclass == file.Subclass);
                     if (folderMapping == null)
                     {
@@ -79,27 +86,20 @@ namespace FileSorter.Helpers
                     {
                         throw new Exception($"File {file.FileName} does not exist in any of the folders.");
                     }
-                    if (!File.Exists(Path.Combine(subClass, file.FileName)))
-                    {
-                        var path = Path.Combine(yearFilePath, file.FileName);
-                        System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, file.FileName)));
-                        var clientFile = _db.ClientFiles.FirstOrDefault(f => f.FileName == file.FileName);
-                        clientFile.FolderMappingId = folderMapping.FolderMappingId;
-                        clientFile.ModifiedDate = DateTime.Now;
-                        clientFile.StatusId = (int)Status.Processed;
-                        _db.Update(clientFile);
-                    }
-                    else
-                    {
-                        bool exists = true;
-                    }
+                    var path = Path.Combine(yearFilePath, file.FileName);
+                    System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, file.FileName)));
+                    var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == file.FileIntID);
+                    clientFiles.FolderMappingId = folderMapping.FolderMappingId;
+                    clientFiles.ModifiedDate = DateTime.Now;
+                    clientFiles.StatusId = (int)Status.Processed;
+                    _db.Update(clientFiles);
+                    _db.SaveChanges();
+                }
+                catch (Exception ex)
+                {
+                    _logging.Log(ex.Message, clientFile, fileName);
                 }
             }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-            _db.SaveChanges();
         }
 
         public bool ValidateConsolidatedFiles(string destinationPath, ArrayOfExportFileMetadata files, string unzipped)

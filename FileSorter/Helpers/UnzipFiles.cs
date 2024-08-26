@@ -2,9 +2,11 @@
 using FileSorter.Data;
 using FileSorter.Entities;
 using FileSorter.Interfaces;
+using FileSorter.Logging.Interfaces;
 using FileSorter.Models;
 using System.Diagnostics;
 using System.IO.Compression;
+using static FileSorter.Common.Constants;
 
 namespace FileSorter.Helpers
 {
@@ -13,12 +15,14 @@ namespace FileSorter.Helpers
         private readonly DBContext _db;
         private readonly IConfiguration _configuration;
         private readonly IFileConsolidator _fileConsolidator;
+        private readonly ILogging _logging;
 
-        public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator)
+        public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator, ILogging logging)
         {
             _db = db;
             _configuration = configuration;
             _fileConsolidator = fileConsolidator;
+            _logging = logging;
         }
 
         public List<GroupedData> ExtractData(List<string> zipFiles)
@@ -45,7 +49,7 @@ namespace FileSorter.Helpers
                     if (xmlFile != null)
                     {
                         xmlFilePath = Path.Combine(extractPath, $"{xmlFile.FirstOrDefault().FullName}");
-                        XmlParser xmlParser = new XmlParser(_db);
+                        XmlParser xmlParser = new XmlParser(_db, _logging);
                         files = xmlParser.ParseClientXml(xmlFilePath);
                     }
                     else
@@ -60,7 +64,7 @@ namespace FileSorter.Helpers
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception(ex.Message);
+                    _logging.Log(ex.Message, null, null);
                 }
                 finally
                 {
@@ -81,14 +85,14 @@ namespace FileSorter.Helpers
                   .Select(cc => new ClientClass
                   {
                       ClassName = cc.Key,
-                      SubClasses = cc.Key != "Permanent" ? new List<SubClass>() :
+                      SubClasses = cc.Key != FileClass.PERMANENT ? new List<SubClass>() :
                                    cc.GroupBy(s => s.Subclass)
                                    .Select(sc => new SubClass
                                    {
                                        SubClassName = sc.Key,
                                        FileName = sc.Select(f => f.FileName).ToList()
                                    }).ToList(),
-                      Years = cc.Key == "Permanent" ? new List<FolderYears>() :
+                      Years = cc.Key == FileClass.PERMANENT ? new List<FolderYears>() :
                               cc.GroupBy(s => s.Year)
                               .Select(y => new FolderYears
                               {

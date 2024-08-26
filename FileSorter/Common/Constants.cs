@@ -7,5 +7,10 @@
             public const string CONTACTS = "Contacts";
             public const string ACCOUNTS = "Accounts";
         }
+
+        public static class FileClass
+        {
+            public const string PERMANENT = "Permanent";
+        }
     }
 }
