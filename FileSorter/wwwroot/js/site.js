@@ -42,6 +42,8 @@ function handleFiles(files) {
     let upload = document.getElementById('uploadFiles');
     var uploadBtn = document.getElementById('uploadFilesBtn');
     var formError = document.getElementById('formError');
+    var spinner = document.getElementById('spinner');
+    spinner.style.display = "none";
     formError.style.display = "none";
     upload.innerHTML = "";
     uploadBtn.disabled = false;
@@ -60,11 +62,6 @@ function handleFiles(files) {
 }
 
 function uploadFiles() {
-    //var xmlFile = document.getElementById('xmlFile');
-    //var fileInfo = {
-    //    files: fileArr,
-    //    metadata: xmlFile.value
-    //}
     var url = 'YOUR URL HERE'
     var xhr = new XMLHttpRequest()
     var formData = new FormData()

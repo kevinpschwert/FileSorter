@@ -51,14 +51,14 @@ namespace FileSorter.Entities
         public string FolderName { get; set; }
         public int FolderYearIntID { get; set; }
         [XmlElement(IsNullable = true)]
-        public string FullTextValue { get; set; }
+        public string? FullTextValue { get; set; }
         public bool HasClientPortal { get; set; }
-        public string ImageType { get; set; }
-        public string Keywords { get; set; }
-        public string LinkType { get; set; }
-        public string ModifiedBy { get; set; }
-        public string ModifiedByUser { get; set; }
-        public string NewDiscussionCount { get; set; }
+        public string? ImageType { get; set; }
+        public string? Keywords { get; set; }
+        public string? LinkType { get; set; }
+        public string? ModifiedBy { get; set; }
+        public string? ModifiedByUser { get; set; }
+        public string? NewDiscussionCount { get; set; }
         public string Office { get; set; }
         public Guid OfficeGuid { get; set; }
         public int OfficeIntID { get; set; }
@@ -79,5 +79,11 @@ namespace FileSorter.Entities
         public int Year { get; set; }
         [XmlElement(IsNullable = true)]
         public int? YearIntID { get; set; }
+        public DateTime? CreateDate { get; set; }
+        public DateTime? ModifiedDate { get; set; }
+        [ForeignKey("StatusId")]
+        public long StatusId { get; set; } = 1;
+        [ForeignKey("FolderMappingId")]
+        public long FolderMappingId { get; set; } = 99;        
     }
 }

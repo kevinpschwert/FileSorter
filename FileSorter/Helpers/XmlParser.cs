@@ -39,11 +39,9 @@ namespace FileSorter.Helpers
                 result = (ArrayOfExportFileMetadata)serializer.Deserialize(reader);
             }
 
-            foreach (var file in result.ClientFiles.OrderBy(x => x.EntityName).ThenBy(y => y.Year))
-            {
-                _db.Add(file);
-            }
-            _db.SaveChanges();
+            var orderedFiles = result.ClientFiles.OrderBy(x => x.EntityName).ThenBy(y => y.Year);
+            orderedFiles.ToList().ForEach(y => y.CreateDate = DateTime.Now);
+            _db.BulkInsert(orderedFiles);
 
             return result;
         }
@@ -65,7 +63,8 @@ namespace FileSorter.Helpers
                 { "?", "_" },
                 { "’", "'" },
                 { "", "_" },
-                { "·", "�" }
+                { "·", "�" },
+                { "–", "-" }
             };
         }
     }

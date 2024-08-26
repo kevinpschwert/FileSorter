@@ -8,8 +8,8 @@ namespace FileSorter.Entities
     {
         [Key]
         public long FolderMappingId { get; set; }
-        public string Class { get; set; }
-        public string Subclass { get; set; }
+        public string? Class { get; set; }
+        public string? Subclass { get; set; }
         public string Level2 { get; set; }
         public string Level3 { get; set; }
         public string? Level4 { get; set; }

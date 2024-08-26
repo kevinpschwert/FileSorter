@@ -3,6 +3,7 @@ using FileSorter.Data;
 using FileSorter.Entities;
 using FileSorter.Interfaces;
 using FileSorter.Models;
+using System.Diagnostics;
 using System.IO.Compression;
 
 namespace FileSorter.Helpers
@@ -22,10 +23,13 @@ namespace FileSorter.Helpers
 
         public List<GroupedData> ExtractData(List<string> zipFiles)
         {
-            string extractPath = "C:\\Users\\kevin\\ExportClients";
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            string extractPath = "C:\\Users\\kevin\\OneDrive\\Desktop\\ExportClients";
             string destinationPath = Path.Combine(extractPath, "ConsolidateData");
             List<ClientFiles> clientFileList = new List<ClientFiles>();
             var files = new ArrayOfExportFileMetadata();
+            IEnumerable<ZipArchiveEntry>? xmlFile = null;
 
             // Step 1: Unzip the files
             foreach (var zippedFile in zipFiles)
@@ -35,7 +39,7 @@ namespace FileSorter.Helpers
                     string xmlFilePath = string.Empty;
                     string zipFilePath = $"{extractPath}\\{zippedFile}.zip";
                     using var openZip = ZipFile.OpenRead(zipFilePath);
-                    var xmlFile = openZip.Entries.Where(x => x.Name.Contains("Metadata")) ?? null;
+                    xmlFile = openZip.Entries.Where(x => x.Name.Contains("Metadata")) ?? null;
                     FileInfo fileInfor1 = new FileInfo(zipFilePath);
                     Unzipper.UnzipFiles(zipFilePath, extractPath);
                     if (xmlFile != null)
@@ -50,20 +54,22 @@ namespace FileSorter.Helpers
                     }
 
                     _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
-                    // bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
-                    clientFileList.AddRange(files.ClientFiles);
-                    Directory.Delete($"{extractPath}\\{zippedFile}", true);
-                    var di = new DirectoryInfo(extractPath);
-                    var xmlFileToDelete = di.GetFiles().FirstOrDefault(x => x.Name == xmlFile.FirstOrDefault().FullName);
-                    xmlFileToDelete.Delete();
+                    bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
+                    clientFileList.AddRange(files.ClientFiles);                   
                     //while (IsFileLocked(fileInfor1)) { }
                 }
                 catch (Exception ex)
                 {
                     throw new Exception(ex.Message);
                 }
+                finally
+                {
+                    Directory.Delete($"{extractPath}\\{zippedFile}", true);
+                    var di = new DirectoryInfo(extractPath);
+                    var xmlFileToDelete = di.GetFiles().FirstOrDefault(x => x.Name == xmlFile.FirstOrDefault().FullName);
+                    xmlFileToDelete.Delete();
+                }
             }
-
 
             var groupedClientData = clientFileList
               .GroupBy(f => f.EntityName)
@@ -111,7 +117,9 @@ namespace FileSorter.Helpers
             //        DeleteFolders();
             //    }
             //}
-
+            sw.Stop();
+            var time = sw.Elapsed.TotalSeconds;
+            
             return groupedClientData;
         }
 
