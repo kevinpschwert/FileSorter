@@ -12,5 +12,6 @@ namespace FileSorter.Entities
         public DateTime CreatedDate { get; set; }
         public string? ClientName { get; set; }
         public string? ClientFile { get; set; }
+        public string? XMLFile { get; set; }
     }
 }

@@ -2,9 +2,6 @@
 using System.Xml.Serialization;
 using System.Xml;
 using FileSorter.Data;
-using System.Xml.Linq;
-using System.Text;
-using FileSorter.Entities;
 using FileSorter.Logging.Interfaces;
 
 namespace FileSorter.Helpers
@@ -52,7 +49,7 @@ namespace FileSorter.Helpers
             }
             catch (Exception ex)
             {
-                _logging.Log(ex.Message, null,null);
+                _logging.Log(ex.Message, null,null, null);
                 throw;
             }
         }

@@ -16,6 +16,7 @@ builder.Services.AddDbContext<DBContext>(options => options.UseSqlServer(builder
 builder.Services.AddScoped<IUnzipFiles, UnzipFiles>();
 builder.Services.AddScoped<IFileConsolidator, FileConsolidator>();
 builder.Services.AddScoped<ILogging, Logging>();
+builder.Services.AddScoped<IValidateClients, ValidateClients>();
 builder.Services.AddSingleton<ICachedService, CachedService>();
 var app = builder.Build();
 

@@ -29,8 +29,8 @@ namespace FileSorter.Helpers
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            string extractPath = "C:\\Users\\kevin\\OneDrive\\Desktop\\ExportClients";
-            string destinationPath = Path.Combine(extractPath, "ConsolidateData");
+            string extractPath = "C:\\Users\\cchdoc\\Desktop\\Clients";
+            string destinationPath = "\\\\Silo\\CCHExport";
             List<ClientFiles> clientFileList = new List<ClientFiles>();
             var files = new ArrayOfExportFileMetadata();
             IEnumerable<ZipArchiveEntry>? xmlFile = null;
@@ -60,11 +60,10 @@ namespace FileSorter.Helpers
                     _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
                     bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
                     clientFileList.AddRange(files.ClientFiles);                   
-                    //while (IsFileLocked(fileInfor1)) { }
                 }
                 catch (Exception ex)
                 {
-                    _logging.Log(ex.Message, null, null);
+                    _logging.Log(ex.Message, null, null, null);
                 }
                 finally
                 {
@@ -116,8 +115,7 @@ namespace FileSorter.Helpers
             //    }
             //    catch (Exception ex)
             //    {
-            //        Console.WriteLine(ex.Message);
-            //        DeleteFolders();
+            //        _logging.Log(ex.Message, null, null, null);
             //    }
             //}
 
@@ -139,28 +137,6 @@ namespace FileSorter.Helpers
             await uploader.UploadFolder(localFolderPath, documentLibraryName);
 
             Console.WriteLine("All files uploaded successfully.");
-        }
-
-        private bool IsFileLocked(FileInfo file)
-        {
-            FileStream stream = null;
-
-            try
-            {
-                stream = file.Open(FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            }
-            catch (IOException)
-            {
-                return true;
-            }
-            finally
-            {
-                if (stream != null)
-                    stream.Close();
-            }
-
-            //file is not locked
-            return false;
         }
     }
 }

@@ -1,0 +1,19 @@
+﻿ @model List<string>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3 class="text-center"><b>MISSING CLIENTS</b></h3>
+    </div>
+</div>
+<div class="row folder-structure-row">
+    <div class="col-md-10 offset-md-1">
+        <div class="row">
+            @foreach (var client in Model)
+            {
+                <div class="col-md-2 d-inline-flex">
+                    <p class="client-info">@client</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>  

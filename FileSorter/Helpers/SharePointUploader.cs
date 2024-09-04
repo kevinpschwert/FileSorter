@@ -23,20 +23,6 @@ namespace FileSorter.Helpers
             _configuration = configuration;
         }
 
-        public static void UploadFile(ClientContext context, string uploadFolderUrl, string uploadFilePath)
-        {
-            var fileCreationInfo = new FileCreationInformation
-            {
-                Content = System.IO.File.ReadAllBytes(uploadFilePath),
-                Overwrite = true,
-                Url = Path.GetFileName(uploadFilePath)
-            };
-            var targetFolder = context.Web.GetFolderByServerRelativeUrl(uploadFolderUrl);
-            var uploadFile = targetFolder.Files.Add(fileCreationInfo);
-            context.Load(uploadFile);
-            context.ExecuteQuery();
-        }
-
         public async Task UploadFolder(string folderPath, string documentLibraryName)
         {
             var TokenEndpoint = _configuration["SharePointOnline:TokenEndpoint"];
@@ -110,8 +96,6 @@ namespace FileSorter.Helpers
 
             var ListData = response.Content.ReadAsStringAsync().Result;
 
-
-
             //Updating List fields
             var ListFieldsUpdateEndPoint = _configuration["SharePointOnline:ListFieldsUpdateEndPoint"];
             ListFieldsUpdateEndPoint = string.Format(ListFieldsUpdateEndPoint, sharepointSite.id, listid, "ItemId");
@@ -127,159 +111,7 @@ namespace FileSorter.Helpers
             var httpContent = new StringContent(strSharePointObject);
             httpContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
             var updateResponse = httpClient.PatchAsync(ListFieldsUpdateEndPoint, httpContent);
-
-
-
-
-            //string accessToken = await GraphAuthProvider.GetAccessTokenAsync(clientId, tenantId, clientSecret);
-
-            //string siteUrl = "https://zealitconsulltants.sharepoint.com/sites/Test";
-            //string resource = "https://zealitconsulltants.sharepoint.com/sites/Test";
-
-            //using (ClientContext cc = new AuthenticationManager().GetACSAppOnlyContext(_siteUrl, clientId, clientSecret))
-            //{
-            //    cc.Load(cc.Web, p => p.Title);
-            //    cc.ExecuteQuery();
-            //    Console.WriteLine(cc.Web.Title);
-            //}
-
-
-            //string realm = GetRealmFromTargetUrl(new Uri(siteUrl));
-
-            //// Get access token
-            //var tokenUrl = $"https://zealitconsulltants.sharepoint.com/sites/Test/_layouts/15/OAuthAuthorize.aspx";
-            //var client = new HttpClient();
-            //var requestBody = $"grant_type=client_credentials&client_id={clientId}@{realm}&client_secret={clientSecret}&resource={resource}/{realm}";
-            //var content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
-            //var response = await client.PostAsync(tokenUrl, content);
-            //var responseContent = await response.Content.ReadAsStringAsync();
-            //var token = JObject.Parse(responseContent)["access_token"]?.ToString();
-
-            //// Use the token in your SharePoint ClientContext
-            //using (var context = new ClientContext(siteUrl))
-            //{
-            //    context.ExecutingWebRequest += (sender, e) =>
-            //    {
-            //        e.WebRequestExecutor.WebRequest.Headers["Authorization"] = "Bearer " + token;
-            //    };
-
-            //    Web web = context.Web;
-            //    List docLib = web.Lists.GetByTitle(documentLibraryName);
-            //    context.Load(docLib.RootFolder);
-            //    context.ExecuteQuery();
-
-            //    // Upload files code here
-            //}
-
-            ////Get the realm for the URL
-            //string realm = TokenHelper.GetRealmFromTargetUrl(new Uri(siteUrl));
-
-            ////Get the access token for the URL.  
-            //string accessToken = TokenHelper.GetAppOnlyAccessToken(TokenHelper.SharePointPrincipal, new Uri(siteUrl).Authority, realm).AccessToken;
-
-            ////Create a client context object based on the retrieved access token
-            //using (ClientContext cc = TokenHelper.GetClientContextWithAccessToken(siteUrl, accessToken))
-            //{
-            //    cc.Load(cc.Web, p => p.Title);
-            //    cc.ExecuteQuery();
-            //    Console.WriteLine(cc.Web.Title);
-            //}
-
-
-
-
-            //using (ClientContext context = new OfficeDevPnP.Core.AuthenticationManager().GetAppOnlyAuthenticatedContext(_siteUrl, Id, Secret))
-            //{
-
-            //var authManager = new PnP.Framework.AuthenticationManager(Id, tenantId, Secret);
-
-            ////using (ClientContext context = new ClientContext(_siteUrl))
-            ////{
-            //using (var context = authManager.GetContext(_siteUrl))
-            //{
-            //    SecureString securePassword = new SecureString();
-            //    foreach (char c in _password.ToCharArray()) securePassword.AppendChar(c);
-            //    context.Credentials = new NetworkCredential(_username, securePassword);
-
-
-            //    Web web = context.Web;
-            //    List docLib = web.Lists.GetByTitle(documentLibraryName);
-            //    context.Load(docLib.RootFolder);
-            //    context.ExecuteQuery();
-
-            //    string[] files = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories);
-
-            //    foreach (var file in files)
-            //    {
-            //        string relativeFilePath = file.Replace(folderPath, "").TrimStart('\\');
-            //        string fileUrl = Path.Combine(docLib.RootFolder.ServerRelativeUrl, relativeFilePath).Replace("\\", "/");
-
-            //        using (FileStream fs = new FileStream(file, FileMode.Open))
-            //        {
-            //            FileCreationInformation fileCreationInfo = new FileCreationInformation
-            //            {
-            //                ContentStream = fs,
-            //                Url = fileUrl,
-            //                Overwrite = true
-            //            };
-
-            //            Microsoft.SharePoint.Client.File uploadFile = docLib.RootFolder.Files.Add(fileCreationInfo);
-            //            context.Load(uploadFile);
-            //            context.ExecuteQuery();
-
-            //            Console.WriteLine($"{relativeFilePath} uploaded successfully.");
-            //        }
-            //    }
-            //}
         }
-
-        //public static string GetRealmFromTargetUrl(Uri targetApplicationUri)
-        //{
-        //    WebRequest request = WebRequest.Create(targetApplicationUri + "/_vti_bin/client.svc");
-        //    request.Headers.Add("Authorization: Bearer ");
-
-        //    try
-        //    {
-        //        using (request.GetResponse())
-        //        {
-        //        }
-        //    }
-        //    catch (WebException e)
-        //    {
-        //        if (e.Response == null)
-        //        {
-        //            return null;
-        //        }
-
-        //        string bearerResponseHeader = e.Response.Headers["WWW-Authenticate"];
-        //        if (string.IsNullOrEmpty(bearerResponseHeader))
-        //        {
-        //            return null;
-        //        }
-
-        //        const string bearer = "Bearer realm=\"";
-        //        int bearerIndex = bearerResponseHeader.IndexOf(bearer, StringComparison.Ordinal);
-        //        if (bearerIndex < 0)
-        //        {
-        //            return null;
-        //        }
-
-        //        int realmIndex = bearerIndex + bearer.Length;
-
-        //        if (bearerResponseHeader.Length >= realmIndex + 36)
-        //        {
-        //            string targetRealm = bearerResponseHeader.Substring(realmIndex, 36);
-
-        //            Guid realmGuid;
-
-        //            if (Guid.TryParse(targetRealm, out realmGuid))
-        //            {
-        //                return targetRealm;
-        //            }
-        //        }
-        //    }
-        //    return null;
-        //}
     }
 
 }

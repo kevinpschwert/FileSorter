@@ -12,9 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="AppForSharePointOnlineWebToolkit" Version="3.1.5" />
-    <PackageReference Include="AppForSharePointOnlineWebToolkit.Compiled" Version="3.1.4.25" />
     <PackageReference Include="EntityFramework" Version="6.5.1" />
-    <PackageReference Include="Microsoft.Azure.ActiveDirectory.GraphClient" Version="2.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.7">
@@ -23,11 +21,12 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Graph" Version="5.56.0" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.63.0" />
-    <PackageReference Include="Microsoft.SharePointOnline.CSOM" Version="16.1.25110.12000" />
+    <PackageReference Include="Microsoft.SharePointOnline.CSOM" Version="16.1.25221.12000" />
     <PackageReference Include="PnP.Core" Version="1.13.0" />
     <PackageReference Include="PnP.Core.Admin" Version="1.13.0" />
     <PackageReference Include="PnP.Core.Auth" Version="1.13.0" />
     <PackageReference Include="PnP.Framework" Version="1.16.0" />
+    <PackageReference Include="TTCUE.NetCore.SharepointOnline.CSOM.16.1.8029.1200" Version="16.1.8029.1200" />
     <PackageReference Include="Z.EntityFramework.Plus.EFCore" Version="8.103.2" />
   </ItemGroup>
 

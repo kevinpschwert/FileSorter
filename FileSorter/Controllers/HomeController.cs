@@ -13,13 +13,15 @@ namespace FileSorter.Controllers
         private readonly DBContext _db;
         private readonly IConfiguration _configuration;
         private readonly IUnzipFiles _unzipFiles;
+        private readonly IValidateClients _validateClients;
 
-        public HomeController(ILogger<HomeController> logger, DBContext db, IConfiguration configuration, IUnzipFiles unzipFiles)
+        public HomeController(ILogger<HomeController> logger, DBContext db, IConfiguration configuration, IUnzipFiles unzipFiles, IValidateClients validateClients)
         {
             _logger = logger;
             _db = db;
             _configuration = configuration;
             _unzipFiles = unzipFiles;
+            _validateClients = validateClients;
         }
 
         public IActionResult Index()
@@ -34,9 +36,16 @@ namespace FileSorter.Controllers
             return PartialView("~/Views/Home/Partials/GroupedClientData.cshtml", data);
         }
 
-        public IActionResult Privacy()
+        public IActionResult ClientValidator()
         {
             return View();
+        }
+
+        [HttpPost]
+        public IActionResult ValidateClients([FromBody] List<string> files)
+        {
+            var data = _validateClients.FindMissingClients(files);
+            return PartialView("~/Views/Home/Partials/MissingClients.cshtml", data);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

@@ -11,6 +11,9 @@
         public static class FileClass
         {
             public const string PERMANENT = "Permanent";
+            public const string ARCHIVED = "Archived";
+            public const string PRIOR2019 = "2019 and prior";
+            public const string YEAR = "Year";
         }
     }
 }

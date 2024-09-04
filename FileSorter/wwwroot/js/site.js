@@ -100,6 +100,28 @@ function uploadFiles() {
     });
 }
 
+function validateClients() {
+    var spinner = document.getElementById('spinner');
+    spinner.style.display = "block";
+
+    $.ajax({
+        "type": "POST",
+        "url": '/Home/ValidateClients/',
+        "dataType": "html",
+        "contentType": "application/json",
+        "data": JSON.stringify(fileArr),
+        "success": function (data) {
+            $("#missingClients").html(data);
+            var spinner = document.getElementById('spinner');
+            spinner.style.display = "none";
+        },
+        error: function (xhr, status, error) {
+            console.error("Error: " + status + " " + error);
+            console.error("Response Text: " + xhr.responseText);
+        }
+    });
+}
+
 function accordian() {
     var acc = document.getElementsByClassName("accordion");
     var i;

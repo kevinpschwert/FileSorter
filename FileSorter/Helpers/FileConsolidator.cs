@@ -4,6 +4,7 @@ using FileSorter.Data;
 using FileSorter.Entities;
 using FileSorter.Logging.Interfaces;
 using FileSorter.Models;
+using static FileSorter.Common.Constants;
 
 namespace FileSorter.Helpers
 {
@@ -12,6 +13,8 @@ namespace FileSorter.Helpers
         private readonly ICachedService _cachedService;
         private readonly DBContext _db;
         private readonly ILogging _logging;
+        private string _fileName;
+        private string _clientFile;
 
         public FileConsolidator(ICachedService cachedService, DBContext db, ILogging logging)
         {
@@ -20,23 +23,41 @@ namespace FileSorter.Helpers
             _logging = logging;
         }
 
-        public void ConsolidateFiles(string destinationPath, ArrayOfExportFileMetadata files, string unzipped)
+        public void ConsolidateFiles(string destinationPath, ArrayOfExportFileMetadata files, string xmlFile)
         {
-            string fileName = string.Empty;
-            string clientFile = string.Empty;
             foreach (var file in files.ClientFiles)
             {
                 try
                 {
-                    fileName = file.FileName;
-                    clientFile = file.EntityName;
-                    var folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == file.Class && x.Subclass == file.Subclass);
-                    if (folderMapping == null)
+                    if (file.FileName.Contains("EDA feedback on Employee"))
+                    {
+                        var found = true;
+                    }
+                    _fileName = file.FileName;
+                    _clientFile = file.EntityName;
+                    FolderMapping folderMapping = new FolderMapping();
+                    var dbFolderMapping = _cachedService.FolderMapping.Where(x => x.Class == file.Class && x.Subclass == file.Subclass);
+                    if (dbFolderMapping.Count() == 1)
+                    {
+                        folderMapping = dbFolderMapping.FirstOrDefault();
+                    }
+                    else if (dbFolderMapping.Count() > 1)
+                    {
+                        if (file.FolderName == FileClass.PERMANENT)
+                        {
+                            folderMapping = _cachedService.FolderMapping.LastOrDefault(x => x.Class == file.Class && x.Subclass == file.Subclass);
+                        }
+                        else
+                        {
+                            folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == file.Class && x.Subclass == file.Subclass);
+                        }
+                    }
+                    else
                     {
                         folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == null && x.Subclass == null);
 
                     }
-                    string contactAccountFolder = file.EntityID.Contains("-100") ? "Contacts" : "Accounts";
+                    string contactAccountFolder = file.EntityID.Contains("-300") || file.EntityID.Contains("-500") ? MainFolder.ACCOUNTS : MainFolder.CONTACTS;
                     string filePath = $"{destinationPath}\\{contactAccountFolder}";
                     if (!Directory.Exists(filePath))
                     {
@@ -54,9 +75,8 @@ namespace FileSorter.Helpers
                     {
                         Directory.CreateDirectory(folderClass);
                     }
-
                     string folderName = string.Empty;
-                    if (file.VirtualFolderPath.Contains("2019 and prior"))
+                    if (file.VirtualFolderPath.Contains(FileClass.PRIOR2019))
                     {
                         folderName = file.FolderName;
                     }
@@ -64,72 +84,120 @@ namespace FileSorter.Helpers
                     {
                         folderName = !string.IsNullOrEmpty(file.Year.ToString()) && file.Year != 0 ? file.Year.ToString() : file.FolderName;
                     }
-
-                    string level3 = folderMapping.Level3 == "Year" ? folderName : folderMapping.Level3;
-
-                    string subClass = Path.Combine(folderClass, level3);
-                    if (!Directory.Exists(subClass))
+                    string subClass = string.Empty;
+                    if (folderMapping.Level2 == FileClass.ARCHIVED)
                     {
-                        Directory.CreateDirectory(subClass);
+                        subClass = folderClass;
                     }
-                    if (!string.IsNullOrEmpty(folderMapping.Level4))
+                    else
                     {
-                        string level4 = folderMapping.Level4 == "Year" ? folderName : folderMapping.Level4;
-                        subClass = Path.Combine(subClass, level4);
+                        string level3 = folderMapping.Level3 == FileClass.YEAR ? folderName : folderMapping.Level3;
+
+                        subClass = Path.Combine(folderClass, level3);
                         if (!Directory.Exists(subClass))
                         {
                             Directory.CreateDirectory(subClass);
                         }
+                        if (!string.IsNullOrEmpty(folderMapping.Level4))
+                        {
+                            string level4 = folderMapping.Level4 == FileClass.YEAR ? folderName : folderMapping.Level4;
+                            subClass = Path.Combine(subClass, level4);
+                            if (!Directory.Exists(subClass))
+                            {
+                                Directory.CreateDirectory(subClass);
+                            }
+                        }
                     }
-                    string yearFilePath = FindFolder(unzipped, clientFolder, folderName, file.VirtualFolderPath, file.FileName);
+
+                    string yearFilePath = FindFolder(xmlFile, clientFolder, folderName, file.VirtualFolderPath, file.FileName);
                     if (string.IsNullOrEmpty(yearFilePath))
                     {
                         throw new Exception($"File {file.FileName} does not exist in any of the folders.");
                     }
-                    var path = Path.Combine(yearFilePath, file.FileName);
-                    System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, file.FileName)));
-                    var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == file.FileIntID);
+
+                    // Because Clients can have multiple files with the filename, we need to append a number to the end of the ones that have the same name.
+                    if (File.Exists(Path.Combine(subClass, file.FileName)))
+                    {
+                        var fileType = file.Type.Split('.')[1];
+                        var splitFile = file.FileName.Split($".{fileType}")[0];
+                        var counter = 1;
+                        string newFileName = string.Empty;
+                        do
+                        {
+                            newFileName = $"{splitFile}_Copy{counter}.{fileType}";
+                            counter++;
+                        }
+                        while (File.Exists(Path.Combine(subClass, newFileName)));
+                        System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, newFileName)));
+                    }
+                    else
+                    {
+                        System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, file.FileName)));
+                    }
+                    var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == file.FileIntID && f.FileName == file.FileName);
                     clientFiles.FolderMappingId = folderMapping.FolderMappingId;
                     clientFiles.ModifiedDate = DateTime.Now;
                     clientFiles.StatusId = (int)Status.Processed;
                     _db.Update(clientFiles);
-                    _db.SaveChanges();
                 }
                 catch (Exception ex)
                 {
-                    _logging.Log(ex.Message, clientFile, fileName);
+                    _logging.Log(ex.Message, _clientFile, _fileName, xmlFile);
                 }
             }
+            _db.SaveChanges();
         }
 
-        public bool ValidateConsolidatedFiles(string destinationPath, ArrayOfExportFileMetadata files, string unzipped)
+        public bool ValidateConsolidatedFiles(string destinationPath, ArrayOfExportFileMetadata files, string xmlFile)
         {
             foreach (var file in files.ClientFiles)
             {
-                var folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == file.Class && x.Subclass == file.Subclass);
-                if (folderMapping == null)
+                FolderMapping folderMapping = new FolderMapping();
+                var dbFolderMapping = _cachedService.FolderMapping.Where(x => x.Class == file.Class && x.Subclass == file.Subclass);
+                if (dbFolderMapping.Count() == 1)
+                {
+                    folderMapping = dbFolderMapping.FirstOrDefault();
+                }
+                else if (dbFolderMapping.Count() > 1)
+                {
+                    if (file.FolderName == FileClass.PERMANENT)
+                    {
+                        folderMapping = _cachedService.FolderMapping.LastOrDefault(x => x.Class == file.Class && x.Subclass == file.Subclass);
+                    }
+                    else
+                    {
+                        folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == file.Class && x.Subclass == file.Subclass);
+                    }
+                }
+                else
                 {
                     folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == null && x.Subclass == null);
 
                 }
                 string clientFolder = $"{file.EntityName} - {file.EntityID}";
-                string contactAccountFolder = file.EntityID.Contains("-100") ? "Contacts" : "Accounts";
+                string contactAccountFolder = file.EntityID.Contains("-300") || file.EntityID.Contains("-500") ? MainFolder.ACCOUNTS : MainFolder.CONTACTS;
+
                 string filePath = $"{destinationPath}\\{contactAccountFolder}";
+                if (!Directory.Exists(filePath))
+                {
+                    return false;
+                    throw new Exception($"File folder {filePath} does not exist.");
+                }
+                // If the folder in not in the main consolidated file folder, create the folder.
                 string clientName = Path.Combine(filePath, clientFolder);
                 if (!Directory.Exists(clientName))
                 {
                     return false;
-                    throw new Exception($"Client folder {clientName} does not exist.");
+                    throw new Exception($"Client {clientName} does not exist.");
                 }
-                string folderClass = Path.Combine(clientName, file.Class);
+                string folderClass = Path.Combine(clientName, folderMapping.Level2);
                 if (!Directory.Exists(folderClass))
                 {
                     return false;
-                    throw new Exception($"Client folder {folderClass} does not exist.");
+                    throw new Exception($"Level 2 {folderClass} does not exist.");
                 }
-
                 string folderName = string.Empty;
-                if (file.VirtualFolderPath.Contains("2019 and prior"))
+                if (file.VirtualFolderPath.Contains(FileClass.PRIOR2019))
                 {
                     folderName = file.FolderName;
                 }
@@ -137,30 +205,39 @@ namespace FileSorter.Helpers
                 {
                     folderName = !string.IsNullOrEmpty(file.Year.ToString()) && file.Year != 0 ? file.Year.ToString() : file.FolderName;
                 }
-                string level3 = folderMapping.Level3 == "Year" ? folderName : folderMapping.Level3;
-
-                string subClass = Path.Combine(folderClass, level3);
-                if (!Directory.Exists(subClass))
+                string subClass = string.Empty;
+                if (folderMapping.Level2 == FileClass.ARCHIVED)
                 {
-                    return false;
-                    throw new Exception($"Level 3 folder {level3} does not exist.");
+                    subClass = folderClass;
                 }
-                if (!string.IsNullOrEmpty(folderMapping.Level4))
+                else
                 {
-                    string level4 = folderMapping.Level4 == "Year" ? folderName : folderMapping.Level4;
-                    subClass = Path.Combine(subClass, level4);
+                    string level3 = folderMapping.Level3 == FileClass.YEAR ? folderName : folderMapping.Level3;
+
+                    subClass = Path.Combine(folderClass, level3);
                     if (!Directory.Exists(subClass))
                     {
                         return false;
-                        throw new Exception($"Level 4 Folder {folderMapping.Level4} does not exist.");
+                        throw new Exception($"Level 3 {subClass} does not exist.");
+                    }
+                    if (!string.IsNullOrEmpty(folderMapping.Level4))
+                    {
+                        string level4 = folderMapping.Level4 == FileClass.YEAR ? folderName : folderMapping.Level4;
+                        subClass = Path.Combine(subClass, level4);
+                        if (!Directory.Exists(subClass))
+                        {
+                            return false;
+                            throw new Exception($"Level 4 {subClass} does not exist.");
+                        }
                     }
                 }
-                string yearFilePath = FindFolder(unzipped, clientFolder, folderName, file.VirtualFolderPath, file.FileName);
+
+                string yearFilePath = FindFolder(xmlFile, clientFolder, folderName, file.VirtualFolderPath, file.FileName);
                 if (string.IsNullOrEmpty(yearFilePath))
                 {
-                    return false;
                     throw new Exception($"File {file.FileName} does not exist in any of the folders.");
                 }
+
                 if (!File.Exists(Path.Combine(subClass, file.FileName)))
                 {
                     return false;
@@ -174,7 +251,7 @@ namespace FileSorter.Helpers
 
         private string FindFolder(string file, string companyName, string year, string virtualFolderPath, string fileName)
         {
-            string yearFilePath = $"C:\\Users\\kevin\\OneDrive\\Desktop\\ExportClients\\{file}\\Clients\\Clients in Main Office Office - Main BU\\{companyName}\\Managed";
+            string yearFilePath = $"C:\\Users\\cchdoc\\Desktop\\Clients\\{file}\\Clients\\Clients in Main Office Office - Main BU\\{companyName}\\Managed";
             string yearPath = !string.IsNullOrEmpty(virtualFolderPath) ? virtualFolderPath : year;
             if (virtualFolderPath.Contains("2019 and prior"))
             {
