@@ -2,9 +2,9 @@
 let dropArea = document.getElementById('drop-area');
 let fileArr = [];
 
-    ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, preventDefaults, false)
-    })
+;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false)
+})
 
     ;['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(eventName, highlight, false)
@@ -45,9 +45,6 @@ function handleFiles(files) {
     var spinner = document.getElementById('spinner');
     spinner.style.display = "none";
     formError.style.display = "none";
-    upload.innerHTML = "";
-    uploadBtn.disabled = false;
-    uploadDiv.style.display = "block";
     $("#folderStructure").html('');
     Object.entries(files).map((x) => {
         if (x[1].name.endsWith(".zip")) {

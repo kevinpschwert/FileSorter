@@ -30,9 +30,9 @@ namespace FileSorter.Controllers
         }
 
         [HttpPost]
-        public IActionResult UploadFiles([FromBody] List<string> files)
+        public async Task<IActionResult> UploadFiles([FromBody] List<string> files)
         {
-            var data = _unzipFiles.ExtractData(files);
+            var data = await _unzipFiles.ExtractData(files);
             return PartialView("~/Views/Home/Partials/GroupedClientData.cshtml", data);
         }
 

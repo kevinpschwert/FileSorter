@@ -4,6 +4,6 @@ namespace FileSorter.Interfaces
 {
     public interface IUnzipFiles
     {
-        List<GroupedData> ExtractData(List<string> zipFiles);
+        Task<List<GroupedData>> ExtractData(List<string> zipFiles);
     }
 }

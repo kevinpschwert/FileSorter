@@ -19,7 +19,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Graph" Version="5.56.0" />
+    <PackageReference Include="Microsoft.Graph" Version="4.54.0" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.63.0" />
     <PackageReference Include="Microsoft.SharePointOnline.CSOM" Version="16.1.25221.12000" />
     <PackageReference Include="PnP.Core" Version="1.13.0" />

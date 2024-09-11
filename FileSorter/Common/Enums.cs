@@ -2,6 +2,7 @@
 {
     public enum Status
     {
-        Processed = 2 
+        Processed = 2,
+        Migrated = 3
     }
 }

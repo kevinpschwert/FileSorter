@@ -16,24 +16,27 @@ namespace FileSorter.Helpers
         private readonly IConfiguration _configuration;
         private readonly IFileConsolidator _fileConsolidator;
         private readonly ILogging _logging;
+        private readonly ISharePointUploader _sharePointUploader;
 
-        public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator, ILogging logging)
+        public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator, ILogging logging, ISharePointUploader sharePointUploader)
         {
             _db = db;
             _configuration = configuration;
             _fileConsolidator = fileConsolidator;
             _logging = logging;
+            _sharePointUploader = sharePointUploader;
         }
 
-        public List<GroupedData> ExtractData(List<string> zipFiles)
+        public async Task<List<GroupedData>> ExtractData(List<string> zipFiles)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            string extractPath = "C:\\Users\\cchdoc\\Desktop\\Clients";
+            string extractPath = "\\\\Silo\\CCHExport";
             string destinationPath = "\\\\Silo\\CCHExport";
             List<ClientFiles> clientFileList = new List<ClientFiles>();
             var files = new ArrayOfExportFileMetadata();
             IEnumerable<ZipArchiveEntry>? xmlFile = null;
+            List<SharePointFileUpload> sharePointFileUploads = new List<SharePointFileUpload>();
 
             // Step 1: Unzip the files
             foreach (var zippedFile in zipFiles)
@@ -57,9 +60,9 @@ namespace FileSorter.Helpers
                         throw new Exception("There is no XML file in this zipped folder");
                     }
 
-                    _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
+                    sharePointFileUploads = await _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
                     bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
-                    clientFileList.AddRange(files.ClientFiles);                   
+                    clientFileList.AddRange(files.ClientFiles);
                 }
                 catch (Exception ex)
                 {
@@ -74,6 +77,7 @@ namespace FileSorter.Helpers
                 }
             }
 
+            await _sharePointUploader.Upload(sharePointFileUploads);
             var groupedClientData = clientFileList
               .GroupBy(f => f.EntityName)
               .Select(g => new GroupedData
@@ -107,36 +111,11 @@ namespace FileSorter.Helpers
                   }).ToList()
               })
               .ToList();
-            //if (isValid)
-            //{
-            //    try
-            //    {
-            //        await UploadToSharePoint();
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        _logging.Log(ex.Message, null, null, null);
-            //    }
-            //}
 
             sw.Stop();
             var time = sw.Elapsed.TotalSeconds;
-            
+
             return groupedClientData;
-        }
-
-        private async Task UploadToSharePoint()
-        {
-            string siteUrl = "*INSERT SHAREPOINT SITE URL*";
-            string username = "*INSERT USERNAME*";
-            string password = "*INSERT PASSWORD*";
-            string localFolderPath = @"*INSERT FOLDER PATH*";
-            string documentLibraryName = "*INSERT FOLDER NAME*";
-
-            SharePointUploader uploader = new SharePointUploader(siteUrl, username, password, _configuration);
-            await uploader.UploadFolder(localFolderPath, documentLibraryName);
-
-            Console.WriteLine("All files uploaded successfully.");
         }
     }
 }

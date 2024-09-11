@@ -13,26 +13,25 @@ namespace FileSorter.Helpers
         private readonly ICachedService _cachedService;
         private readonly DBContext _db;
         private readonly ILogging _logging;
+        private readonly IConfiguration _configuration;
         private string _fileName;
         private string _clientFile;
 
-        public FileConsolidator(ICachedService cachedService, DBContext db, ILogging logging)
+        public FileConsolidator(ICachedService cachedService, DBContext db, ILogging logging, IConfiguration configuration)
         {
             _cachedService = cachedService;
             _db = db;
             _logging = logging;
+            _configuration = configuration;
         }
 
-        public void ConsolidateFiles(string destinationPath, ArrayOfExportFileMetadata files, string xmlFile)
+        public async Task<List<SharePointFileUpload>> ConsolidateFiles(string destinationPath, ArrayOfExportFileMetadata files, string xmlFile)
         {
+            List<SharePointFileUpload> sharePointFileList = new List<SharePointFileUpload>();
             foreach (var file in files.ClientFiles)
             {
                 try
                 {
-                    if (file.FileName.Contains("EDA feedback on Employee"))
-                    {
-                        var found = true;
-                    }
                     _fileName = file.FileName;
                     _clientFile = file.EntityName;
                     FolderMapping folderMapping = new FolderMapping();
@@ -139,6 +138,15 @@ namespace FileSorter.Helpers
                     clientFiles.ModifiedDate = DateTime.Now;
                     clientFiles.StatusId = (int)Status.Processed;
                     _db.Update(clientFiles);
+                    string driveFilePath = Path.Combine(subClass, _fileName);
+                    var sharePointFilePath = driveFilePath.Split("\\ConsolidateData")[1].Replace("\\", "/").Replace(_fileName, string.Empty);
+                    SharePointFileUpload sharePointFile = new SharePointFileUpload
+                    {
+                        DriveFilePath = driveFilePath,
+                        SharePointFilePath = sharePointFilePath,
+                        FileIntId = file.FileIntID
+                    };
+                    sharePointFileList.Add(sharePointFile);
                 }
                 catch (Exception ex)
                 {
@@ -146,6 +154,7 @@ namespace FileSorter.Helpers
                 }
             }
             _db.SaveChanges();
+            return sharePointFileList;
         }
 
         public bool ValidateConsolidatedFiles(string destinationPath, ArrayOfExportFileMetadata files, string xmlFile)
@@ -251,7 +260,7 @@ namespace FileSorter.Helpers
 
         private string FindFolder(string file, string companyName, string year, string virtualFolderPath, string fileName)
         {
-            string yearFilePath = $"C:\\Users\\cchdoc\\Desktop\\Clients\\{file}\\Clients\\Clients in Main Office Office - Main BU\\{companyName}\\Managed";
+            string yearFilePath = $"\\\\Silo\\CCHExport\\{file}\\Clients\\Clients in Main Office Office - Main BU\\{companyName}\\Managed";
             string yearPath = !string.IsNullOrEmpty(virtualFolderPath) ? virtualFolderPath : year;
             if (virtualFolderPath.Contains("2019 and prior"))
             {

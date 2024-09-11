@@ -1,117 +1,133 @@
-﻿//using System.Net;
-using System.Security;
-using Microsoft.SharePoint.Client;
-using Newtonsoft.Json;
-using System.Net;
+﻿using Azure.Identity;
+using FileSorter.Data;
+using FileSorter.Interfaces;
+using FileSorter.Logging.Interfaces;
 using FileSorter.Models;
+using Microsoft.Graph;
 
 namespace FileSorter.Helpers
 {
-
-    public class SharePointUploader
+    public class SharePointUploader : ISharePointUploader
     {
-        private string _siteUrl;
-        private string _username;
-        private string _password;
+        private readonly ILogging _logging;
         private readonly IConfiguration _configuration;
+        private readonly DBContext _db;
+        private string _clientId;
+        private string _tenantId;
+        private string _clientSecret;
+        private string _sharePointSiteId;
+        private string _driveId;
 
-        public SharePointUploader(string siteUrl, string username, string password, IConfiguration configuration)
+        public SharePointUploader(ILogging logging, IConfiguration configuration, DBContext db)
         {
-            _siteUrl = siteUrl;
-            _username = username;
-            _password = password;
+            _logging = logging;
             _configuration = configuration;
+            _db = db;
         }
 
-        public async Task UploadFolder(string folderPath, string documentLibraryName)
+        private readonly int _maxConcurrentUploads = 10;
+
+        public async Task Upload(List<SharePointFileUpload> sharePointFileUploads)
         {
-            var TokenEndpoint = _configuration["SharePointOnline:TokenEndpoint"];
-            var ClientID = _configuration["SharePointOnline:client_id"];
-            var ClientSecret = _configuration["SharePointOnline:client_secret"];
-            var resource = _configuration["SharePointOnline:resource"];
-            var GrantType = _configuration["SharePointOnline:grant_type"];
-            var Tenant = _configuration["SharePointOnline:tenant"];
-            TokenEndpoint = string.Format(TokenEndpoint, Tenant);
+            _clientId = _configuration["SharePointOnline:client_id"];
+            _clientSecret = _configuration["SharePointOnline:client_secret"];
+            _tenantId = _configuration["SharePointOnline:tenant"];
+            _sharePointSiteId = _configuration["SharePointOnline:site_id"];
+            _driveId = _configuration["SharePointOnline:drive_id"];
+            var graphClient = GetAuthenticatedGraphClient();
 
+            // Upload all files concurrently
+            await UploadFilesInParallel(graphClient, sharePointFileUploads);
+        }
 
+        // Method to upload multiple files in parallel
+        private async Task UploadFilesInParallel(GraphServiceClient graphClient, List<SharePointFileUpload> sharePointFileUploads)
+        {
+            var uploadTasks = new List<Task>();
 
-            var keyValues = new List<KeyValuePair<string, string>>
+            // Use a limited number of concurrent tasks to avoid overwhelming the server
+            using (var semaphore = new System.Threading.SemaphoreSlim(_maxConcurrentUploads))
             {
-                new KeyValuePair<string, string>("grant_type", GrantType),
-                new KeyValuePair<string, string>("client_id", ClientID),
-                new KeyValuePair<string, string>("client_secret", ClientSecret),
-                new KeyValuePair<string, string>("resource", resource),
-                new KeyValuePair<string, string>("tenant", Tenant),
-            };
-
-            HttpContent content = new FormUrlEncodedContent(keyValues);
-
-            var httpClient = new HttpClient();
-            var response = httpClient.PostAsync(TokenEndpoint, content).Result;
-            var token = response.Content.ReadAsStringAsync().Result;
-            var accessToken = (JsonConvert.DeserializeObject<AccessToken>(token)).access_token;
-
-
-            var SiteDataEndPoint = _configuration["SharePointOnline:SiteDataEndPoint"];
-
-            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-            response = httpClient.GetAsync(SiteDataEndPoint).Result;
-            var siteData = response.Content.ReadAsStringAsync().Result;
-            var sharepointSite = JsonConvert.DeserializeObject<SharePointSite>(siteData);
-
-
-            var ListsEndPoint = _configuration["SharePointOnline:ListsEndPoint"];
-            ListsEndPoint = string.Format(ListsEndPoint, sharepointSite.id);
-
-
-            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-            response = httpClient.GetAsync(ListsEndPoint).Result;
-            var listData = response.Content.ReadAsStringAsync().Result;
-            var sharePointList = JsonConvert.DeserializeObject<SharePointList>(listData);
-            var listid = sharePointList.value.FirstOrDefault(obj => obj.displayName == "Infor Services Bidpacks").id;
-
-
-            var ListDataEndPoint = _configuration["SharePointOnline:ListDataByFilter"];
-            ListDataEndPoint = string.Format(ListDataEndPoint, sharepointSite.id, listid);
-            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-            response = httpClient.GetAsync(ListDataEndPoint).Result;
-
-            //Below logic is to handle TooManyRequests Error. We wait for seconds mentioned in Header with name "Retry-After" and try to call the endpoint again.
-            int maxRetryCount = 3;
-            int retriesCount = 0;
-
-            if (response.StatusCode == HttpStatusCode.TooManyRequests)
-            {
-                do
+                foreach (var fileUpload in sharePointFileUploads)
                 {
-                    // Determine the retry after value - use the "Retry-After" header
-                    var retryAfterInterval = Int32.Parse(response.Headers.GetValues("Retry-After").FirstOrDefault());
+                    await semaphore.WaitAsync();
 
-                    //we get retryAfterInterval in seconds. We need to pass milliseconds to Thread.Sleep method, hence we multiply retryAfterInterval with 1000
-                    System.Threading.Thread.Sleep(retryAfterInterval * 1000);
-                    response = httpClient.GetAsync(ListDataEndPoint).Result;
-                    retriesCount += 1;
-                } while (response.StatusCode == HttpStatusCode.TooManyRequests && retriesCount <= maxRetryCount);
+                    var filePath = fileUpload.DriveFilePath;
+                    var sharePointFolderPath = fileUpload.SharePointFilePath;
+
+                    uploadTasks.Add(Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await UploadFileToSharePoint(graphClient, filePath, sharePointFolderPath, fileUpload.FileIntId);
+                        }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
+                    }));
+                }
+
+                await Task.WhenAll(uploadTasks); // Wait for all uploads to complete
             }
 
-            var ListData = response.Content.ReadAsStringAsync().Result;
-
-            //Updating List fields
-            var ListFieldsUpdateEndPoint = _configuration["SharePointOnline:ListFieldsUpdateEndPoint"];
-            ListFieldsUpdateEndPoint = string.Format(ListFieldsUpdateEndPoint, sharepointSite.id, listid, "ItemId");
-
-            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-            var sharePointObject = new
-            {
-                field1 = "value1",
-                field2 = "value2"
-            };
-
-            string strSharePointObject = JsonConvert.SerializeObject(sharePointObject, Newtonsoft.Json.Formatting.Indented);
-            var httpContent = new StringContent(strSharePointObject);
-            httpContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-            var updateResponse = httpClient.PatchAsync(ListFieldsUpdateEndPoint, httpContent);
+            Console.WriteLine("All files uploaded.");
+            await _db.SaveChangesAsync();
         }
-    }
 
+        // Method to upload a single file to SharePoint
+        private async Task UploadFileToSharePoint(GraphServiceClient graphClient, string filePath, string sharePointFolderPath, long fileIntId)
+        {
+            try
+            {
+                var fileName = Path.GetFileName(filePath);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Open))
+                {
+                    // Navigate to the SharePoint folder and create an upload session
+                    var uploadSession = await graphClient
+                        .Sites[_sharePointSiteId]
+                        .Drives[_driveId]
+                        .Root
+                        .ItemWithPath($"{sharePointFolderPath}/{fileName}")
+                        .CreateUploadSession()
+                        .Request()
+                        .PostAsync();
+
+                    var maxChunkSize = 320 * 1024; // 320 KB per chunk, adjust based on file sizes and network conditions
+                    var fileUploadTask = new LargeFileUploadTask<DriveItem>(uploadSession, fileStream, maxChunkSize);
+
+                    // Upload the file in chunks
+                    var uploadResult = await fileUploadTask.UploadAsync();
+
+                    if (uploadResult.UploadSucceeded)
+                    {
+                        var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == fileIntId && f.FileName == fileName);
+                        clientFiles.ModifiedDate = DateTime.Now;
+                        clientFiles.StatusId = (int)Common.Status.Migrated;
+                        _db.Update(clientFiles);
+                        Console.WriteLine($"File '{fileName}' uploaded to '{sharePointFolderPath}' successfully.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"File upload for '{fileName}' failed.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logging.Log(ex.Message, null, null, null);
+            }
+        }
+
+        // Method to get the authenticated Graph Client using ClientSecretCredential
+        private GraphServiceClient GetAuthenticatedGraphClient()
+        {
+            var clientSecretCredential = new ClientSecretCredential(
+                _tenantId, _clientId, _clientSecret);
+
+            return new GraphServiceClient(clientSecretCredential);
+        }
+
+    }
 }
