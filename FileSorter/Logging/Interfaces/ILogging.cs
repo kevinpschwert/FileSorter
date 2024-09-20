@@ -2,6 +2,6 @@
 {
     public interface ILogging
     {
-        void Log(string message, string? clientName, string? clientFile, string? xmlFile);
+        void Log(string message, string? clientName = null, string? clientFile = null, string? xmlFile = null);
     }
 }

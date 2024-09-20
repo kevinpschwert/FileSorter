@@ -18,6 +18,9 @@ namespace FileSorter.Data
         public DbSet<FileStatus> FileStatuses { get; set; }
 
         public DbSet<ClientLogging> ClientLoggings { get; set; }
+
         public DbSet<MigratedClientFiles> MigratedClientFiles { get; set; }
+
+        public DbSet<ZohoClientIdMapping> ZohoClientIdMappings { get; set; }
     }
 }

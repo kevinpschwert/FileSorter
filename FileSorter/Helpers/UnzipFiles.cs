@@ -17,22 +17,24 @@ namespace FileSorter.Helpers
         private readonly IFileConsolidator _fileConsolidator;
         private readonly ILogging _logging;
         private readonly ISharePointUploader _sharePointUploader;
+        ICachedService _cachedService;
 
-        public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator, ILogging logging, ISharePointUploader sharePointUploader)
+        public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator, ILogging logging, ISharePointUploader sharePointUploader, ICachedService cachedService)
         {
             _db = db;
             _configuration = configuration;
             _fileConsolidator = fileConsolidator;
             _logging = logging;
             _sharePointUploader = sharePointUploader;
+            _cachedService = cachedService;
         }
 
         public async Task<List<GroupedData>> ExtractData(List<string> zipFiles)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            string extractPath = "\\\\Silo\\CCHExport";
-            string destinationPath = "\\\\Silo\\CCHExport";
+            string extractPath = "C:\\Users\\kevin\\OneDrive\\Desktop\\ExportClients";
+            string destinationPath = Path.Combine(extractPath, "ConsolidateData");
             List<ClientFiles> clientFileList = new List<ClientFiles>();
             var files = new ArrayOfExportFileMetadata();
             IEnumerable<ZipArchiveEntry>? xmlFile = null;
@@ -52,7 +54,7 @@ namespace FileSorter.Helpers
                     if (xmlFile != null)
                     {
                         xmlFilePath = Path.Combine(extractPath, $"{xmlFile.FirstOrDefault().FullName}");
-                        XmlParser xmlParser = new XmlParser(_db, _logging);
+                        XmlParser xmlParser = new XmlParser(_db, _logging, _cachedService);
                         files = xmlParser.ParseClientXml(xmlFilePath);
                     }
                     else
@@ -60,13 +62,14 @@ namespace FileSorter.Helpers
                         throw new Exception("There is no XML file in this zipped folder");
                     }
 
-                    sharePointFileUploads = await _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
+                    var filesToUpload = await _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
+                    sharePointFileUploads.AddRange(filesToUpload);
                     bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
                     clientFileList.AddRange(files.ClientFiles);
                 }
                 catch (Exception ex)
                 {
-                    _logging.Log(ex.Message, null, null, null);
+                    _logging.Log(ex.Message);
                 }
                 finally
                 {
@@ -116,6 +119,52 @@ namespace FileSorter.Helpers
             var time = sw.Elapsed.TotalSeconds;
 
             return groupedClientData;
+        }
+    }
+
+    public class UploadZohoClientMapping
+    {
+        DBContext _db;
+
+        public UploadZohoClientMapping(DBContext db)
+        {
+            _db = db;
+        }
+
+        public void UploadCsv()
+        {
+            List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\kevin\\OneDrive\\Desktop\\ClientCSV\\Pod5.csv")
+                                           .Skip(1)
+                                           .Select(v => Pod.FromCsv(v))
+                                           .ToList();
+
+            foreach (var value in values)
+            {
+                ZohoClientIdMapping zohoClientIdMapping = new ZohoClientIdMapping
+                {
+                    ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
+                    ClientId = value.ClientId,
+                    ClientName = value.Client
+                };
+                _db.ZohoClientIdMappings.Add(zohoClientIdMapping);
+            }
+            _db.SaveChanges();
+        }
+    }
+
+    public class Pod
+    {
+        public string ZohoId { get; set; }
+        public string ClientId { get; set; }
+        public string Client { get; set; }
+        public static Pod FromCsv(string csvLine)
+        {
+            string[] values = csvLine.Split(",");
+            Pod pod = new Pod();
+            pod.ZohoId = values[0].ToString();
+            pod.ClientId = values[1].ToString();
+            pod.Client = values[2].ToString();
+            return pod;
         }
     }
 }

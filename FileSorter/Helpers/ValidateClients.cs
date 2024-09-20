@@ -46,7 +46,7 @@ namespace FileSorter.Helpers
                 }
                 catch (Exception ex)
                 {
-                    _logging.Log(ex.Message, null, null, null);
+                    _logging.Log(ex.Message);
                 }
                 finally
                 {

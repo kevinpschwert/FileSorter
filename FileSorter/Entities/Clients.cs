@@ -9,5 +9,6 @@ namespace FileSorter.Entities
         [Key]
         public long ClientId { get; set; }
         public string ClientName { get; set; }
+        public string CWId { get; set; }
     }
 }

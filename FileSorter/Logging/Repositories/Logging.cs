@@ -13,7 +13,7 @@ namespace FileSorter.Logging.Repositories
             _db = db;
         }
 
-        public void Log(string message, string? clientName, string? clientFile, string? xmlFile)
+        public void Log(string message, string? clientName = null, string? clientFile = null, string? xmlFile = null)
         {
             _db.ClientLoggings.Add(new ClientLogging
             {

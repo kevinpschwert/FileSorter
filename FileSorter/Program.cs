@@ -34,8 +34,11 @@ using (var scope = app.Services.CreateScope())
     var cacheService = scope.ServiceProvider.GetRequiredService<ICachedService>();
     var dbContext = scope.ServiceProvider.GetRequiredService<DBContext>();
 
-    var data = dbContext.FolderMappings.ToList();
-    cacheService.FolderMapping = data;
+    var folderMapping = dbContext.FolderMappings.ToList();
+    var zohoClientIdMapping = dbContext.ZohoClientIdMappings.ToList();
+    var clients = dbContext.Clients.ToList();
+    cacheService.FolderMapping = folderMapping;
+    cacheService.ZohoClientIdMappings = zohoClientIdMapping;
 }
 
 app.UseHttpsRedirection();

@@ -17,6 +17,7 @@ namespace FileSorter.Helpers
         private string _clientSecret;
         private string _sharePointSiteId;
         private string _driveId;
+        private List<SharePointFileUpload> _uploadedFiles = new List<SharePointFileUpload>();
 
         public SharePointUploader(ILogging logging, IConfiguration configuration, DBContext db)
         {
@@ -54,7 +55,6 @@ namespace FileSorter.Helpers
 
                     var filePath = fileUpload.DriveFilePath;
                     var sharePointFolderPath = fileUpload.SharePointFilePath;
-
                     uploadTasks.Add(Task.Run(async () =>
                     {
                         try
@@ -72,7 +72,29 @@ namespace FileSorter.Helpers
             }
 
             Console.WriteLine("All files uploaded.");
-            await _db.SaveChangesAsync();
+            try
+            {
+                var uploadedFilesList = _uploadedFiles.ToList(); // This ensures that _uploadedFiles is evaluated in memory
+                var uploadedClients = (from c in _db.ClientFiles.AsEnumerable() // Switch to in-memory evaluation
+                                       join f in uploadedFilesList on new { X1 = c.FileIntID, X2 = c.FileName } equals new { X1 = f.FileIntId, X2 = f.FileName }
+                                       select c).ToList();
+                var missingFile = uploadedClients.FirstOrDefault(x => x.FileName == "2023 Financials General Ledger_V1.xlsx");
+                if (missingFile != null)
+                {
+                    var yes = true;
+                }
+                uploadedClients.ForEach(c =>
+                {
+                    c.ModifiedDate = DateTime.Now;
+                    c.StatusId = (int)Common.Status.Migrated;
+                });
+                _db.BulkUpdate(uploadedClients);
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logging.Log(ex.Message);
+            }
         }
 
         // Method to upload a single file to SharePoint
@@ -102,21 +124,21 @@ namespace FileSorter.Helpers
 
                     if (uploadResult.UploadSucceeded)
                     {
-                        var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == fileIntId && f.FileName == fileName);
-                        clientFiles.ModifiedDate = DateTime.Now;
-                        clientFiles.StatusId = (int)Common.Status.Migrated;
-                        _db.Update(clientFiles);
-                        Console.WriteLine($"File '{fileName}' uploaded to '{sharePointFolderPath}' successfully.");
+                        _uploadedFiles.Add(new SharePointFileUpload
+                        {
+                            FileIntId = fileIntId,
+                            FileName = fileName
+                        });
                     }
                     else
                     {
-                        Console.WriteLine($"File upload for '{fileName}' failed.");
+                        _logging.Log($"Error uploading the following file to SharePoint: {fileName}", null, null, null);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logging.Log(ex.Message, null, null, null);
+                _logging.Log(ex.Message);
             }
         }
 
