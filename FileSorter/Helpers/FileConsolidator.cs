@@ -25,7 +25,7 @@ namespace FileSorter.Helpers
             _configuration = configuration;
         }
 
-        public async Task<List<SharePointFileUpload>> ConsolidateFiles(string destinationPath, ArrayOfExportFileMetadata files, string xmlFile)
+        public async Task<List<SharePointFileUpload>> ConsolidateFiles(string destinationPath, ArrayOfExportFileMetadata files, string xmlFile, string uploadSessionGuid)
         {
             List<SharePointFileUpload> sharePointFileList = new List<SharePointFileUpload>();
             foreach (var file in files.ClientFiles)
@@ -56,7 +56,7 @@ namespace FileSorter.Helpers
                         folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == null && x.Subclass == null);
 
                     }
-                    string contactAccountFolder = file.EntityID.Contains("-300") || file.EntityID.Contains("-50") ? MainFolder.ACCOUNTS : MainFolder.CONTACTS;
+                    string contactAccountFolder = file.EntityID.Contains("-3") || file.EntityID.Contains("-5") ? MainFolder.ACCOUNTS : MainFolder.CONTACTS;
                     string filePath = $"{destinationPath}\\{contactAccountFolder}";
                     if (!Directory.Exists(filePath))
                     {
@@ -120,12 +120,12 @@ namespace FileSorter.Helpers
                         }
 
                         // Because Clients can have multiple files with the filename, we need to append a number to the end of the ones that have the same name.
-                        string newFileName = file.FileName;
                         if (File.Exists(Path.Combine(subClass, file.FileName)))
                         {
                             var fileType = file.Type.Split('.')[1];
                             var splitFile = file.FileName.Split($".{fileType}")[0];
                             var counter = 1;
+                            string newFileName = string.Empty;
                             do
                             {
                                 newFileName = $"{splitFile}_Copy{counter}.{fileType}";
@@ -136,10 +136,10 @@ namespace FileSorter.Helpers
                         }
                         else
                         {
-                            System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, newFileName)));
+                            System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, file.FileName)));
                         }
-                        var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == file.FileIntID && f.FileName == file.FileName);
-                        if (clientFiles is null)
+                        var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == file.FileIntID && f.FileName == file.FileName && f.UploadSessionGuid == uploadSessionGuid);
+                         if (clientFiles is null)
                         {
                             _logging.Log($"Could not find the following file: {_fileName}", _fileName, _clientFile, xmlFile);
                         }
@@ -158,7 +158,9 @@ namespace FileSorter.Helpers
                                     DriveFilePath = driveFilePath,
                                     SharePointFilePath = sharePointFilePath,
                                     FileIntId = file.FileIntID,
-                                    ClientName = file.EntityName
+                                    ClientName = file.EntityName,
+                                    UploadSessionGuid = uploadSessionGuid,
+                                    FileName = file.FileName
                                 };
                                 sharePointFileList.Add(sharePointFile);
                             }
@@ -287,7 +289,7 @@ namespace FileSorter.Helpers
 
         private string FindFolder(string file, string companyName, string year, string virtualFolderPath, string fileName)
         {
-            string yearFilePath = $"C:\\Users\\kevin\\OneDrive\\Desktop\\ExportClients\\{file}\\Clients\\Clients in Main Office Office - Main BU\\{companyName}\\Managed";
+            string yearFilePath = $"C:\\Users\\cchdoc\\Desktop\\Clients\\{file}\\Clients\\Clients in Main Office Office - Main BU\\{companyName}\\Managed";
             string yearPath = !string.IsNullOrEmpty(virtualFolderPath) ? virtualFolderPath : year;
             if (virtualFolderPath.Contains("2019 and prior"))
             {

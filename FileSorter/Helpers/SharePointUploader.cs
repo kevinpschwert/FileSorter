@@ -4,6 +4,8 @@ using FileSorter.Interfaces;
 using FileSorter.Logging.Interfaces;
 using FileSorter.Models;
 using Microsoft.Graph;
+using System.Diagnostics;
+using System.IO;
 
 namespace FileSorter.Helpers
 {
@@ -18,6 +20,13 @@ namespace FileSorter.Helpers
         private string _sharePointSiteId;
         private string _driveId;
         private List<SharePointFileUpload> _uploadedFiles = new List<SharePointFileUpload>();
+        private List<SharePointFileUpload> _filesToRetry = new List<SharePointFileUpload>();
+        private List<SharePointFileUpload> _filesRetriedSuccessful = new List<SharePointFileUpload>();
+        private int _retries = 0;
+        private static readonly int _maxRetries = 3;            // Maximum retry attempts
+        private static readonly int _baseDelay = 1000;          // Base delay for exponential backoff in milliseconds
+        private static readonly double _exponentialFactor = 2;
+        private string _uploadSessionGuid;
 
         public SharePointUploader(ILogging logging, IConfiguration configuration, DBContext db)
         {
@@ -28,13 +37,14 @@ namespace FileSorter.Helpers
 
         private readonly int _maxConcurrentUploads = 10;
 
-        public async Task Upload(List<SharePointFileUpload> sharePointFileUploads)
+        public async Task Upload(List<SharePointFileUpload> sharePointFileUploads, string uploadSessionGuid)
         {
             _clientId = _configuration["SharePointOnline:client_id"];
             _clientSecret = _configuration["SharePointOnline:client_secret"];
             _tenantId = _configuration["SharePointOnline:tenant"];
             _sharePointSiteId = _configuration["SharePointOnline:site_id"];
             _driveId = _configuration["SharePointOnline:drive_id"];
+            _uploadSessionGuid = uploadSessionGuid;
             var graphClient = GetAuthenticatedGraphClient();
 
             // Upload all files concurrently
@@ -55,11 +65,12 @@ namespace FileSorter.Helpers
 
                     var filePath = fileUpload.DriveFilePath;
                     var sharePointFolderPath = fileUpload.SharePointFilePath;
+
                     uploadTasks.Add(Task.Run(async () =>
                     {
                         try
                         {
-                            await UploadFileToSharePoint(graphClient, filePath, sharePointFolderPath, fileUpload.FileIntId);
+                            await UploadFileToSharePoint(graphClient, fileUpload);
                         }
                         finally
                         {
@@ -71,18 +82,14 @@ namespace FileSorter.Helpers
                 await Task.WhenAll(uploadTasks); // Wait for all uploads to complete
             }
 
-            Console.WriteLine("All files uploaded.");
             try
             {
+                var filesNotUploaded = sharePointFileUploads.Where(f => !_uploadedFiles.Any(u => u.FileIntId == f.FileIntId)).ToList();
                 var uploadedFilesList = _uploadedFiles.ToList(); // This ensures that _uploadedFiles is evaluated in memory
                 var uploadedClients = (from c in _db.ClientFiles.AsEnumerable() // Switch to in-memory evaluation
                                        join f in uploadedFilesList on new { X1 = c.FileIntID, X2 = c.FileName } equals new { X1 = f.FileIntId, X2 = f.FileName }
+                                       where c.StatusId == (int)Common.Status.Processed && c.UploadSessionGuid == _uploadSessionGuid
                                        select c).ToList();
-                var missingFile = uploadedClients.FirstOrDefault(x => x.FileName == "2023 Financials General Ledger_V1.xlsx");
-                if (missingFile != null)
-                {
-                    var yes = true;
-                }
                 uploadedClients.ForEach(c =>
                 {
                     c.ModifiedDate = DateTime.Now;
@@ -93,30 +100,68 @@ namespace FileSorter.Helpers
             }
             catch (Exception ex)
             {
-                _logging.Log(ex.Message);
+                _logging.Log(ex.Message, null, null, null);
+            }
+            _filesToRetry.RemoveAll(f => _filesRetriedSuccessful.Contains(f));
+            if (_filesToRetry.Any() && _retries < 3)
+            {
+                _retries++;
+                await UploadFilesInParallel(graphClient, _filesToRetry);
+            }
+            else if (_filesToRetry.Any())
+            {
+                _filesToRetry.ForEach(f =>
+                {
+                    _logging.Log($"The following files were not uplaoded to SharePoint: {f.FileName}", f.ClientName, f.FileName, null);
+                });
+            }
+
+            var uploadedFiles = _db.ClientFiles.Where(x => x.UploadSessionGuid == _uploadSessionGuid).ToList();
+
+            // We need to ensure that all the files were properly uploaded to SharePoint so we check if the files are there
+            foreach (var file in sharePointFileUploads)
+            {
+                try
+                {
+                    var fileInSharePoint = await graphClient
+                    .Sites[_sharePointSiteId]
+                    .Drives[_driveId]
+                    .Root
+                    .ItemWithPath($"{file.SharePointFilePath}/{file.FileName}")
+                    .Request()
+                    .GetAsync();
+                    if (fileInSharePoint == null)
+                    {
+                        _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, null);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logging.Log($"The following error occurred while checking if the file was uploaded to SharePoint: {file.FileName} - {ex.Message}", file.ClientName, file.FileName, null);
+                }
             }
         }
 
         // Method to upload a single file to SharePoint
-        private async Task UploadFileToSharePoint(GraphServiceClient graphClient, string filePath, string sharePointFolderPath, long fileIntId)
+        private async Task UploadFileToSharePoint(GraphServiceClient graphClient, SharePointFileUpload fileUpload)
         {
             try
             {
-                var fileName = Path.GetFileName(filePath);
+                var fileName = Path.GetFileName(fileUpload.DriveFilePath);
 
-                using (var fileStream = new FileStream(filePath, FileMode.Open))
+                using (var fileStream = new FileStream(fileUpload.DriveFilePath, FileMode.Open))
                 {
                     // Navigate to the SharePoint folder and create an upload session
                     var uploadSession = await graphClient
                         .Sites[_sharePointSiteId]
                         .Drives[_driveId]
                         .Root
-                        .ItemWithPath($"{sharePointFolderPath}/{fileName}")
+                        .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileName}")
                         .CreateUploadSession()
                         .Request()
                         .PostAsync();
 
-                    var maxChunkSize = 320 * 1024; // 320 KB per chunk, adjust based on file sizes and network conditions
+                    var maxChunkSize = 5 * 1024 * 1024; // 320 KB per chunk, adjust based on file sizes and network conditions
                     var fileUploadTask = new LargeFileUploadTask<DriveItem>(uploadSession, fileStream, maxChunkSize);
 
                     // Upload the file in chunks
@@ -124,9 +169,13 @@ namespace FileSorter.Helpers
 
                     if (uploadResult.UploadSucceeded)
                     {
+                        if (_filesToRetry.Contains(fileUpload))
+                        {
+                            _filesRetriedSuccessful.Add(fileUpload);
+                        }
                         _uploadedFiles.Add(new SharePointFileUpload
                         {
-                            FileIntId = fileIntId,
+                            FileIntId = fileUpload.FileIntId,
                             FileName = fileName
                         });
                     }
@@ -138,7 +187,44 @@ namespace FileSorter.Helpers
             }
             catch (Exception ex)
             {
-                _logging.Log(ex.Message);
+                if (!_filesToRetry.Contains(fileUpload))
+                {
+                    _filesToRetry.Add(fileUpload);
+                }
+            }
+        }
+
+        private static async Task RetryWithExponentialBackoffAsync(Func<Task> action)
+        {
+            int attempt = 0;
+
+            while (attempt < _maxRetries)
+            {
+                try
+                {
+                    attempt++;
+                    // Execute the action (in this case, file upload)
+                    await action();
+
+                    // If successful, break out of the loop
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt >= _maxRetries)
+                    {
+                        Console.WriteLine($"Maximum retry attempts reached. Operation failed. Error: {ex.Message}");
+                        throw; // Rethrow the exception after max retries
+                    }
+
+                    // Calculate exponential backoff delay
+                    TimeSpan calculatedDelay = TimeSpan.FromMilliseconds(_baseDelay * Math.Pow(_exponentialFactor, attempt - 1));
+
+                    Console.WriteLine($"Attempt {attempt} of {_maxRetries} failed. Retrying in {calculatedDelay.TotalSeconds} seconds... Error: {ex.Message}");
+
+                    // Wait before retrying
+                    await Task.Delay(calculatedDelay);
+                }
             }
         }
 

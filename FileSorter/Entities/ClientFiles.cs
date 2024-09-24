@@ -84,6 +84,7 @@ namespace FileSorter.Entities
         [ForeignKey("StatusId")]
         public long StatusId { get; set; } = 1;
         [ForeignKey("FolderMappingId")]
-        public long FolderMappingId { get; set; } = 99;        
+        public long FolderMappingId { get; set; } = 99;
+        public string UploadSessionGuid { get; set; }
     }
 }

@@ -18,6 +18,7 @@ namespace FileSorter.Helpers
         private readonly ILogging _logging;
         private readonly ISharePointUploader _sharePointUploader;
         ICachedService _cachedService;
+        private string _uploadSessionGuid;
 
         public UnzipFiles(DBContext db, IConfiguration configuration, IFileConsolidator fileConsolidator, ILogging logging, ISharePointUploader sharePointUploader, ICachedService cachedService)
         {
@@ -33,18 +34,25 @@ namespace FileSorter.Helpers
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            string extractPath = "C:\\Users\\kevin\\OneDrive\\Desktop\\ExportClients";
+            string extractPath = "C:\\Users\\cchdoc\\Desktop\\Clients";
             string destinationPath = Path.Combine(extractPath, "ConsolidateData");
             List<ClientFiles> clientFileList = new List<ClientFiles>();
             var files = new ArrayOfExportFileMetadata();
             IEnumerable<ZipArchiveEntry>? xmlFile = null;
             List<SharePointFileUpload> sharePointFileUploads = new List<SharePointFileUpload>();
+            _uploadSessionGuid = Guid.NewGuid().ToString();
 
             // Step 1: Unzip the files
             foreach (var zippedFile in zipFiles)
             {
                 try
                 {
+                    UploadSession uploadSession = new UploadSession
+                    {
+                        UploadSessionGuid = _uploadSessionGuid,
+                        XMLFile = zippedFile
+                    };
+                    _db.UploadSessions.Add(uploadSession);
                     string xmlFilePath = string.Empty;
                     string zipFilePath = $"{extractPath}\\{zippedFile}.zip";
                     using var openZip = ZipFile.OpenRead(zipFilePath);
@@ -55,17 +63,18 @@ namespace FileSorter.Helpers
                     {
                         xmlFilePath = Path.Combine(extractPath, $"{xmlFile.FirstOrDefault().FullName}");
                         XmlParser xmlParser = new XmlParser(_db, _logging, _cachedService);
-                        files = xmlParser.ParseClientXml(xmlFilePath);
+                        files = xmlParser.ParseClientXml(xmlFilePath, _uploadSessionGuid);
                     }
                     else
                     {
                         throw new Exception("There is no XML file in this zipped folder");
                     }
 
-                    var filesToUpload = await _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile);
+                    var filesToUpload = await _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile, _uploadSessionGuid);
                     sharePointFileUploads.AddRange(filesToUpload);
-                    bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
+                    //bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
                     clientFileList.AddRange(files.ClientFiles);
+                    // await _sharePointUploader.Upload(filesToUpload, _UploadSessionGuid);
                 }
                 catch (Exception ex)
                 {
@@ -80,7 +89,7 @@ namespace FileSorter.Helpers
                 }
             }
 
-            await _sharePointUploader.Upload(sharePointFileUploads);
+            await _sharePointUploader.Upload(sharePointFileUploads, _uploadSessionGuid);
             var groupedClientData = clientFileList
               .GroupBy(f => f.EntityName)
               .Select(g => new GroupedData
@@ -133,7 +142,7 @@ namespace FileSorter.Helpers
 
         public void UploadCsv()
         {
-            List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\kevin\\OneDrive\\Desktop\\ClientCSV\\Pod5.csv")
+            List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\kevin\\OneDrive\\Desktop\\ClientCSV\\NLCZohoMapping.csv")
                                            .Skip(1)
                                            .Select(v => Pod.FromCsv(v))
                                            .ToList();
@@ -163,7 +172,7 @@ namespace FileSorter.Helpers
             Pod pod = new Pod();
             pod.ZohoId = values[0].ToString();
             pod.ClientId = values[1].ToString();
-            pod.Client = values[2].ToString();
+            pod.Client = $"{values[3].ToString()}, {values[2].ToString()}";
             return pod;
         }
     }

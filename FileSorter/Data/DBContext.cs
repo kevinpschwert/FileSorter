@@ -22,5 +22,7 @@ namespace FileSorter.Data
         public DbSet<MigratedClientFiles> MigratedClientFiles { get; set; }
 
         public DbSet<ZohoClientIdMapping> ZohoClientIdMappings { get; set; }
+
+        public DbSet<UploadSession> UploadSessions { get; set; }
     }
 }

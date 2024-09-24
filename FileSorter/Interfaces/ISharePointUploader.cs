@@ -4,6 +4,6 @@ namespace FileSorter.Interfaces
 {
     public interface ISharePointUploader
     {
-        Task Upload(List<SharePointFileUpload> sharePointFileUploads);
+        Task Upload(List<SharePointFileUpload> sharePointFileUploads, string UploadSessionGuid);
     }
 }

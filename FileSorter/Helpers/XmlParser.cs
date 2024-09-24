@@ -19,9 +19,9 @@ namespace FileSorter.Helpers
             _db = db;
             _logging = logging;
             _cachedService = cachedService;
-        }        
+        }
 
-        public ArrayOfExportFileMetadata ParseClientXml(string xmlFilePath)
+        public ArrayOfExportFileMetadata ParseClientXml(string xmlFilePath, string uploadSessionGuid)
         {
             try
             {
@@ -46,14 +46,17 @@ namespace FileSorter.Helpers
                 }
 
                 var orderedFiles = result.ClientFiles.OrderBy(x => x.EntityName).ThenBy(y => y.Year);
-                orderedFiles.ToList().ForEach(y => y.CreateDate = DateTime.Now);
+                orderedFiles.ToList().ForEach(y => { 
+                                                    y.CreateDate = DateTime.Now; 
+                                                    y.UploadSessionGuid = uploadSessionGuid; 
+                });
                 _db.BulkInsert(orderedFiles);
 
                 var clientsInDb = _db.Clients.ToList();
                 var clients = result.ClientFiles.Select(x => new { x.EntityName, x.EntityID }).Distinct().ToList();
                 var clientNotInDb = clients.Where(x => !clientsInDb
                                             .Select(y => y.ClientName).Contains(x.EntityName))
-                                            .Select(x => new Clients { CWId = x.EntityID, ClientName = x.EntityName}).ToList();
+                                            .Select(x => new Clients { CWId = x.EntityID, ClientName = x.EntityName }).ToList();
                 _db.BulkInsert(clientNotInDb);
 
                 return result;
