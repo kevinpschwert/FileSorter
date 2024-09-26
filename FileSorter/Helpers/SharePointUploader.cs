@@ -81,27 +81,7 @@ namespace FileSorter.Helpers
 
                 await Task.WhenAll(uploadTasks); // Wait for all uploads to complete
             }
-
-            try
-            {
-                var filesNotUploaded = sharePointFileUploads.Where(f => !_uploadedFiles.Any(u => u.FileIntId == f.FileIntId)).ToList();
-                var uploadedFilesList = _uploadedFiles.ToList(); // This ensures that _uploadedFiles is evaluated in memory
-                var uploadedClients = (from c in _db.ClientFiles.AsEnumerable() // Switch to in-memory evaluation
-                                       join f in uploadedFilesList on new { X1 = c.FileIntID, X2 = c.FileName } equals new { X1 = f.FileIntId, X2 = f.FileName }
-                                       where c.StatusId == (int)Common.Status.Processed && c.UploadSessionGuid == _uploadSessionGuid
-                                       select c).ToList();
-                uploadedClients.ForEach(c =>
-                {
-                    c.ModifiedDate = DateTime.Now;
-                    c.StatusId = (int)Common.Status.Migrated;
-                });
-                _db.BulkUpdate(uploadedClients);
-                await _db.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                _logging.Log(ex.Message, null, null, null);
-            }
+            
             _filesToRetry.RemoveAll(f => _filesRetriedSuccessful.Contains(f));
             if (_filesToRetry.Any() && _retries < 3)
             {
@@ -137,8 +117,33 @@ namespace FileSorter.Helpers
                 }
                 catch (Exception ex)
                 {
+                    if (_uploadedFiles.Contains(file))
+                    {
+                        _uploadedFiles.Remove(file);
+                    }
                     _logging.Log($"The following error occurred while checking if the file was uploaded to SharePoint: {file.FileName} - {ex.Message}", file.ClientName, file.FileName, null);
                 }
+            }
+
+            try
+            {
+                var filesNotUploaded = sharePointFileUploads.Where(f => !_uploadedFiles.Any(u => u.FileIntId == f.FileIntId)).ToList();
+                var uploadedFilesList = _uploadedFiles.ToList(); // This ensures that _uploadedFiles is evaluated in memory
+                var uploadedClients = (from c in _db.ClientFiles.AsEnumerable() // Switch to in-memory evaluation
+                                       join f in uploadedFilesList on new { X1 = c.FileIntID, X2 = c.FileName, X3 = c.UploadSessionGuid } equals new { X1 = f.FileIntId, X2 = f.FileName, X3 = f.UploadSessionGuid }
+                                       where c.StatusId == (int)Common.Status.Processed
+                                       select c).ToList();
+                uploadedClients.ForEach(c =>
+                {
+                    c.ModifiedDate = DateTime.Now;
+                    c.StatusId = (int)Common.Status.Migrated;
+                });
+                _db.BulkUpdate(uploadedClients);
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logging.Log(ex.Message, null, null, null);
             }
         }
 
@@ -176,7 +181,8 @@ namespace FileSorter.Helpers
                         _uploadedFiles.Add(new SharePointFileUpload
                         {
                             FileIntId = fileUpload.FileIntId,
-                            FileName = fileName
+                            FileName = fileName,
+                            UploadSessionGuid = fileUpload.UploadSessionGuid
                         });
                     }
                     else
@@ -194,7 +200,7 @@ namespace FileSorter.Helpers
             }
         }
 
-        private static async Task RetryWithExponentialBackoffAsync(Func<Task> action)
+        private async Task RetryWithExponentialBackoffAsync(Func<Task> action)
         {
             int attempt = 0;
 
@@ -213,7 +219,7 @@ namespace FileSorter.Helpers
                 {
                     if (attempt >= _maxRetries)
                     {
-                        Console.WriteLine($"Maximum retry attempts reached. Operation failed. Error: {ex.Message}");
+                        _logging.Log($"Maximum retry attempts reached. Operation failed. Error: {ex.Message}");
                         throw; // Rethrow the exception after max retries
                     }
 

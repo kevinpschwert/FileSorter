@@ -4,6 +4,7 @@
     {
         public string EntityName { get; set; }
         public List<ClientClass> Clients { get; set; } = new List<ClientClass>();
+        public string UploadSessionGuid { get; set; }
     }
 
     public class ClientClass

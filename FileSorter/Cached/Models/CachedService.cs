@@ -6,6 +6,6 @@ namespace FileSorter.Cached.Models
     public class CachedService : ICachedService
     {
         public List<FolderMapping> FolderMapping { get; set; }
-        public List<ZohoClientIdMapping> ZohoClientIdMappings { get; set; }
+        public List<Clients> Clients { get; set; }
     }
 }

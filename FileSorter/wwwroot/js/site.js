@@ -89,6 +89,35 @@ function uploadFiles() {
             var spinner = document.getElementById('spinner');
             spinner.style.display = "none";
             uploadBtn.disabled = true;
+            var uploadSessionGuid = document.getElementById('uploadSessionGuid');
+            uploadSessionGuid.value = data[0].uploadSessionGuid;
+        },
+        error: function (xhr, status, error) {
+            console.error("Error: " + status + " " + error);
+            console.error("Response Text: " + xhr.responseText);
+        }
+    });
+}
+
+function retryUploadFiles() {
+    var xhr = new XMLHttpRequest()
+    var formData = new FormData()
+    xhr.open('POST', url, true)
+
+    var spinner = document.getElementById('spinner');
+    spinner.style.display = "block";
+
+        $.ajax({
+        "type": "POST",
+        "url": '/Home/RetryUploadFiles/',
+        "dataType": "html",
+        "contentType": "application/json",
+        "data": JSON.stringify(fileArr),
+        "success": function (data) {
+            if (data) {
+                var spinner = document.getElementById('spinner');
+                spinner.style.display = "none";
+            }
         },
         error: function (xhr, status, error) {
             console.error("Error: " + status + " " + error);

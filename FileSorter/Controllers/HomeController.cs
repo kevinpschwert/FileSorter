@@ -33,6 +33,9 @@ namespace FileSorter.Controllers
         public async Task<IActionResult> UploadFiles([FromBody] List<string> files)
         {
             var data = await _unzipFiles.ExtractData(files);
+            //UploadZohoClientMapping uploadZohoClientMapping = new UploadZohoClientMapping(_db);
+            //uploadZohoClientMapping.UploadCsv();
+            //var data = new List<GroupedData>()
             return PartialView("~/Views/Home/Partials/GroupedClientData.cshtml", data);
         }
 
@@ -46,6 +49,13 @@ namespace FileSorter.Controllers
         {
             var data = _validateClients.FindMissingClients(files);
             return PartialView("~/Views/Home/Partials/MissingClients.cshtml", data);
+        }
+
+        [HttpPost]
+        public async Task<JsonResult> RetryUploadFiles([FromBody] List<string> files)
+        {
+            var data = await _unzipFiles.ExtractData(files);
+            return new JsonResult(true);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

@@ -1,4 +1,5 @@
 ﻿using FileSorter.Cached.Interfaces;
+using FileSorter.Common;
 using FileSorter.Data;
 using FileSorter.Entities;
 using FileSorter.Interfaces;
@@ -63,7 +64,7 @@ namespace FileSorter.Helpers
                     {
                         xmlFilePath = Path.Combine(extractPath, $"{xmlFile.FirstOrDefault().FullName}");
                         XmlParser xmlParser = new XmlParser(_db, _logging, _cachedService);
-                        files = xmlParser.ParseClientXml(xmlFilePath, _uploadSessionGuid);
+                        files = xmlParser.ParseClientXml(xmlFilePath, _uploadSessionGuid, zippedFile);
                     }
                     else
                     {
@@ -120,7 +121,8 @@ namespace FileSorter.Helpers
                                       FileName = sc.Select(sc => sc.FileName).ToList()
                                   }).ToList()
                               }).ToList()
-                  }).ToList()
+                  }).ToList(),
+                  UploadSessionGuid = _uploadSessionGuid
               })
               .ToList();
 
@@ -128,6 +130,25 @@ namespace FileSorter.Helpers
             var time = sw.Elapsed.TotalSeconds;
 
             return groupedClientData;
+        }
+
+        public async Task RetryUploadFiles(List<string> files)
+        {
+            foreach (var file in files)
+            {
+                var uploadSessionId = _db.UploadSessions.FirstOrDefault(x => x.XMLFile == file).UploadSessionGuid;
+                var filesToUpload = _db.ClientFiles.Where(x => x.UploadSessionGuid == uploadSessionId && x.StatusId == (int)Status.Processed).ToList();
+                var sharePointFileUpload = filesToUpload.Select(x => new SharePointFileUpload
+                {
+                    DriveFilePath = x.DriveFilePath,
+                    SharePointFilePath = x.SharePointFilePath,
+                    FileIntId = x.FileIntID,
+                    ClientName = x.EntityName,
+                    UploadSessionGuid = x.UploadSessionGuid,
+                    FileName = x.FileName
+                }).ToList();
+                await _sharePointUploader.Upload(sharePointFileUpload, uploadSessionId);
+            }
         }
     }
 
@@ -142,20 +163,20 @@ namespace FileSorter.Helpers
 
         public void UploadCsv()
         {
-            List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\kevin\\OneDrive\\Desktop\\ClientCSV\\NLCZohoMapping.csv")
+            List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\NLCZohoMapping.csv")
                                            .Skip(1)
                                            .Select(v => Pod.FromCsv(v))
                                            .ToList();
 
             foreach (var value in values)
             {
-                ZohoClientIdMapping zohoClientIdMapping = new ZohoClientIdMapping
+                Clients clients = new Clients
                 {
                     ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
-                    ClientId = value.ClientId,
+                    CWAId = value.CWAId,
                     ClientName = value.Client
                 };
-                _db.ZohoClientIdMappings.Add(zohoClientIdMapping);
+                _db.Clients.Add(clients);
             }
             _db.SaveChanges();
         }
@@ -164,15 +185,15 @@ namespace FileSorter.Helpers
     public class Pod
     {
         public string ZohoId { get; set; }
-        public string ClientId { get; set; }
+        public string CWAId { get; set; }
         public string Client { get; set; }
         public static Pod FromCsv(string csvLine)
         {
             string[] values = csvLine.Split(",");
             Pod pod = new Pod();
             pod.ZohoId = values[0].ToString();
-            pod.ClientId = values[1].ToString();
-            pod.Client = $"{values[3].ToString()}, {values[2].ToString()}";
+            pod.CWAId = values[1].ToString();
+            pod.Client = $"{values[2].ToString()} {values[3].ToString()}";
             return pod;
         }
     }

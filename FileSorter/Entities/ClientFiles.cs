@@ -86,5 +86,8 @@ namespace FileSorter.Entities
         [ForeignKey("FolderMappingId")]
         public long FolderMappingId { get; set; } = 99;
         public string UploadSessionGuid { get; set; }
+        public string XMLFIle { get; set; }
+        public string? DriveFilePath { get; set; }
+        public string? SharePointFilePath { get; set; }
     }
 }

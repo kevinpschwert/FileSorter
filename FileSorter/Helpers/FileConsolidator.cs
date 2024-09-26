@@ -56,14 +56,14 @@ namespace FileSorter.Helpers
                         folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == null && x.Subclass == null);
 
                     }
-                    string contactAccountFolder = file.EntityID.Contains("-3") || file.EntityID.Contains("-5") ? MainFolder.ACCOUNTS : MainFolder.CONTACTS;
+                    string contactAccountFolder = file.EntityID.Contains("-5") ? MainFolder.ACCOUNTS : MainFolder.CONTACTS;
                     string filePath = $"{destinationPath}\\{contactAccountFolder}";
                     if (!Directory.Exists(filePath))
                     {
                         Directory.CreateDirectory(filePath);
                     }
                     string clientFolder = $"{file.EntityName} - {file.EntityID}";
-                    var zohoMapping = _cachedService.ZohoClientIdMappings.FirstOrDefault(x => x.ClientId.Split("-")[0] == file.EntityID.Split("-")[0] || x.ClientName == file.EntityName);
+                    var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId.Split("-")[0] == file.EntityID.Split("-")[0] || x.ClientName == file.EntityName);
                     if (zohoMapping is not null)
                     {
                         string zohoId = zohoMapping.ZohoId;
@@ -139,20 +139,22 @@ namespace FileSorter.Helpers
                             System.IO.File.Move(Path.Combine(yearFilePath, file.FileName), (Path.Combine(subClass, file.FileName)));
                         }
                         var clientFiles = _db.ClientFiles.FirstOrDefault(f => f.FileIntID == file.FileIntID && f.FileName == file.FileName && f.UploadSessionGuid == uploadSessionGuid);
-                         if (clientFiles is null)
+                        if (clientFiles is null)
                         {
                             _logging.Log($"Could not find the following file: {_fileName}", _fileName, _clientFile, xmlFile);
                         }
                         else
                         {
+                            string driveFilePath = Path.Combine(subClass, _fileName);
+                            var sharePointFilePath = driveFilePath.Split("\\ConsolidateData")[1].Replace("\\", "/").Replace(_fileName, string.Empty);
+                            clientFiles.DriveFilePath = driveFilePath;
+                            clientFiles.SharePointFilePath = sharePointFilePath;
                             clientFiles.FolderMappingId = folderMapping.FolderMappingId;
                             clientFiles.ModifiedDate = DateTime.Now;
                             clientFiles.StatusId = (int)Status.Processed;
                             _db.Update(clientFiles);
                             if (folderName == FileClass.PERMANENT || (int.TryParse(folderName, out int year) && year >= 2020))
                             {
-                                string driveFilePath = Path.Combine(subClass, _fileName);
-                                var sharePointFilePath = driveFilePath.Split("\\ConsolidateData")[1].Replace("\\", "/").Replace(_fileName, string.Empty);
                                 SharePointFileUpload sharePointFile = new SharePointFileUpload
                                 {
                                     DriveFilePath = driveFilePath,
@@ -215,7 +217,7 @@ namespace FileSorter.Helpers
                     throw new Exception($"File folder {filePath} does not exist.");
                 }
                 string clientFolder = $"{file.EntityName} - {file.EntityID}";
-                var zohoMapping = _cachedService.ZohoClientIdMappings.FirstOrDefault(x => x.ClientId.Split("-")[0] == file.EntityID.Split("-")[0] || x.ClientName == file.EntityName);
+                var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId.Split("-")[0] == file.EntityID.Split("-")[0] || x.ClientName == file.EntityName);
                 if (zohoMapping is not null)
                 {
                     string zohoId = zohoMapping.ZohoId;
