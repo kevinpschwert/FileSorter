@@ -35,15 +35,14 @@ namespace FileSorter.Helpers
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            string extractPath = "C:\\Users\\cchdoc\\Desktop\\Clients";
-            string destinationPath = Path.Combine(extractPath, "ConsolidateData");
+            string extractPath = "C:\\Users\\cchdoc\\Desktop\\ExportClients";
+            string destinationPath = Path.Combine(extractPath, "ConsolidateData_New");
             List<ClientFiles> clientFileList = new List<ClientFiles>();
             var files = new ArrayOfExportFileMetadata();
             IEnumerable<ZipArchiveEntry>? xmlFile = null;
             List<SharePointFileUpload> sharePointFileUploads = new List<SharePointFileUpload>();
             _uploadSessionGuid = Guid.NewGuid().ToString();
 
-            // Step 1: Unzip the files
             foreach (var zippedFile in zipFiles)
             {
                 try
@@ -72,10 +71,8 @@ namespace FileSorter.Helpers
                     }
 
                     var filesToUpload = await _fileConsolidator.ConsolidateFiles(destinationPath, files, zippedFile, _uploadSessionGuid);
-                    sharePointFileUploads.AddRange(filesToUpload);
-                    //bool isValid = _fileConsolidator.ValidateConsolidatedFiles(destinationPath, files, zippedFile);
                     clientFileList.AddRange(files.ClientFiles);
-                    // await _sharePointUploader.Upload(filesToUpload, _UploadSessionGuid);
+                    await _sharePointUploader.Upload(filesToUpload, _uploadSessionGuid);
                 }
                 catch (Exception ex)
                 {
@@ -90,7 +87,6 @@ namespace FileSorter.Helpers
                 }
             }
 
-            await _sharePointUploader.Upload(sharePointFileUploads, _uploadSessionGuid);
             var groupedClientData = clientFileList
               .GroupBy(f => f.EntityName)
               .Select(g => new GroupedData
@@ -137,7 +133,8 @@ namespace FileSorter.Helpers
             foreach (var file in files)
             {
                 var uploadSessionId = _db.UploadSessions.FirstOrDefault(x => x.XMLFile == file).UploadSessionGuid;
-                var filesToUpload = _db.ClientFiles.Where(x => x.UploadSessionGuid == uploadSessionId && x.StatusId == (int)Status.Processed).ToList();
+                var cf = _db.ClientFiles.ToList();
+                var filesToUpload = cf.Where(x => x.UploadSessionGuid == uploadSessionId && x.StatusId == (int)Status.Processed && !string.IsNullOrEmpty(x.SharePointFilePath) && (x.FolderName == FileClass.PERMANENT || (int.TryParse(x.FolderName, out int year) && year >= 2020))).ToList();
                 var sharePointFileUpload = filesToUpload.Select(x => new SharePointFileUpload
                 {
                     DriveFilePath = x.DriveFilePath,
@@ -163,21 +160,46 @@ namespace FileSorter.Helpers
 
         public void UploadCsv()
         {
-            List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\NLCZohoMapping.csv")
-                                           .Skip(1)
-                                           .Select(v => Pod.FromCsv(v))
-                                           .ToList();
+            //List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\NLC_New.csv")
+            //                               .Skip(1)
+            //                               .Select(v => Pod.FromCsv(v))
+            //                               .ToList();
+
+            //foreach (var value in values)
+            //{
+            //    Clients clients = new Clients
+            //    {
+            //        ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
+            //        CWAId = value.CWAId,
+            //        ClientName = value.Client,
+            //        XCMId = value.XCMId
+            //    };
+            //    _db.Clients.Add(clients);
+            //}
+
+            List<Mapping> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\MappingAccountType.csv")
+                                         .Skip(0)
+                                          .Select(v => Mapping.FromCsv(v))
+                                          .ToList();
+
+            long counter = 1;
 
             foreach (var value in values)
             {
-                Clients clients = new Clients
+                Entities.FolderMapping folderMapping = new Entities.FolderMapping()
                 {
-                    ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
-                    CWAId = value.CWAId,
-                    ClientName = value.Client
+                    FolderMappingId = counter,
+                    AccountType = value.AccountType,
+                    Class = value.Class,
+                    Subclass = value.SubClass,
+                    Level2 = value.Level2,
+                    Level3 = value.Level3,
+                    Level4 = value.Level4,
                 };
-                _db.Clients.Add(clients);
+                _db.FolderMappings.Add(folderMapping);
+                counter++;
             }
+
             _db.SaveChanges();
         }
     }
@@ -187,6 +209,7 @@ namespace FileSorter.Helpers
         public string ZohoId { get; set; }
         public string CWAId { get; set; }
         public string Client { get; set; }
+        public string XCMId { get; set; }
         public static Pod FromCsv(string csvLine)
         {
             string[] values = csvLine.Split(",");
@@ -194,7 +217,30 @@ namespace FileSorter.Helpers
             pod.ZohoId = values[0].ToString();
             pod.CWAId = values[1].ToString();
             pod.Client = $"{values[2].ToString()} {values[3].ToString()}";
+            pod.XCMId = values[5].ToString();
             return pod;
+        }
+    }
+
+    public class Mapping
+    {
+        public string Class { get; set; }
+        public string SubClass { get; set; }
+        public string Level2 { get; set; }
+        public string Level3 { get; set; }
+        public string? Level4 { get; set; }
+        public string? AccountType { get; set; }
+        public static Mapping FromCsv(string csvLine)
+        {
+            string[] values = csvLine.Split(",");
+            Mapping folderMapping = new Mapping();
+            folderMapping.AccountType = string.IsNullOrEmpty(values[0].ToString()) ? null : values[0].ToString();
+            folderMapping.Class = values[1].ToString();
+            folderMapping.SubClass = values[2].ToString();
+            folderMapping.Level2 = values[3].ToString();
+            folderMapping.Level3 = values[4].ToString();
+            folderMapping.Level4 = string.IsNullOrEmpty(values[5].ToString()) ? null : values[5].ToString();
+            return folderMapping;
         }
     }
 }

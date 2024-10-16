@@ -22,5 +22,7 @@ namespace FileSorter.Data
         public DbSet<MigratedClientFiles> MigratedClientFiles { get; set; }
 
         public DbSet<UploadSession> UploadSessions { get; set; }
+
+        public DbSet<SharePointFolders> SharePointFolders { get; set; }
     }
 }

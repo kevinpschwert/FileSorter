@@ -1,4 +1,7 @@
-﻿@{
+﻿@using Microsoft.Extensions.Configuration
+@inject IConfiguration Configuration
+
+@{
     ViewData["Title"] = "Home Page";
 }
 
@@ -7,8 +10,17 @@
         <img src="~/images/cain-watters-logo-new-2012verysmall.png" />
     </div>
 </div>
+
 <div id="dropAreaDiv" class="row">
     <div class="col-md-12">
+        <div class="row">
+            <div class="col-md-4 offset-md-3">
+                @if (@Configuration.GetSection("SharePointOnline")["site_id"] == "a2a9413b-2cb1-4c09-b51f-e5c6e1d90ac8")
+                {
+                    <h1>Production</h1>
+                }
+            </div>
+        </div>
         <div class="row">
             <div class="col-md-3 offset-md-3">
                 <div id="drop-area">

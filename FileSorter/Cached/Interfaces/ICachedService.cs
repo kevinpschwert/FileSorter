@@ -6,5 +6,6 @@ namespace FileSorter.Cached.Interfaces
     {
         List<FolderMapping> FolderMapping { get; set; }
         List<Clients> Clients{ get; set; }
+        List<SharePointFolders> SharePointsFolders { get; set; }
     }
 }

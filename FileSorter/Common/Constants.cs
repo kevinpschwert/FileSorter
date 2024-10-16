@@ -15,5 +15,11 @@
             public const string PRIOR2019 = "2019 and prior";
             public const string YEAR = "Year";
         }
+
+        public static class AccountType
+        {
+            public const string PARTNERSHIPS = "Partnerships";
+            public const string INDIVIDUAL = "Individual";
+        }
     }
 }

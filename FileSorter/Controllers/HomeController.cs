@@ -35,7 +35,7 @@ namespace FileSorter.Controllers
             var data = await _unzipFiles.ExtractData(files);
             //UploadZohoClientMapping uploadZohoClientMapping = new UploadZohoClientMapping(_db);
             //uploadZohoClientMapping.UploadCsv();
-            //var data = new List<GroupedData>()
+            //var data = new List<GroupedData>();
             return PartialView("~/Views/Home/Partials/GroupedClientData.cshtml", data);
         }
 
@@ -54,7 +54,7 @@ namespace FileSorter.Controllers
         [HttpPost]
         public async Task<JsonResult> RetryUploadFiles([FromBody] List<string> files)
         {
-            var data = await _unzipFiles.ExtractData(files);
+            await _unzipFiles.RetryUploadFiles(files);
             return new JsonResult(true);
         }
 

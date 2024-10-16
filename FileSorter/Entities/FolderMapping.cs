@@ -13,5 +13,6 @@ namespace FileSorter.Entities
         public string Level2 { get; set; }
         public string? Level3 { get; set; }
         public string? Level4 { get; set; }
+        public string? AccountType { get; set; }
     }
 }

@@ -36,9 +36,11 @@ using (var scope = app.Services.CreateScope())
 
     var folderMapping = dbContext.FolderMappings.ToList();
     var zohoClientIdMapping = dbContext.Clients.ToList();
+    var sharePointFolders = dbContext.SharePointFolders.ToList();
     var clients = dbContext.Clients.ToList();
     cacheService.FolderMapping = folderMapping;
     cacheService.Clients = zohoClientIdMapping;
+    cacheService.SharePointsFolders = sharePointFolders;
 }
 
 app.UseHttpsRedirection();

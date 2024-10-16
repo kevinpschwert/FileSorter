@@ -100,6 +100,7 @@ function uploadFiles() {
 }
 
 function retryUploadFiles() {
+    var url = 'YOUR URL HERE'
     var xhr = new XMLHttpRequest()
     var formData = new FormData()
     xhr.open('POST', url, true)

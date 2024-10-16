@@ -5,7 +5,7 @@ using FileSorter.Logging.Interfaces;
 using FileSorter.Models;
 using Microsoft.Graph;
 using System.Diagnostics;
-using System.IO;
+using static FileSorter.Common.Constants;
 
 namespace FileSorter.Helpers
 {
@@ -35,7 +35,7 @@ namespace FileSorter.Helpers
             _db = db;
         }
 
-        private readonly int _maxConcurrentUploads = 10;
+        private readonly int _maxConcurrentUploads = 5;
 
         public async Task Upload(List<SharePointFileUpload> sharePointFileUploads, string uploadSessionGuid)
         {
@@ -47,6 +47,29 @@ namespace FileSorter.Helpers
             _uploadSessionGuid = uploadSessionGuid;
             var graphClient = GetAuthenticatedGraphClient();
 
+            // Since adding a duplicate file will erase the most current file on SharePoint, we need to verify that there are no duplicate files
+            List<SharePointFileUpload> existingFilesList = new List<SharePointFileUpload>();
+            foreach (var fileUpload in sharePointFileUploads)
+            {
+                try
+                {
+                    var existingFiles = await graphClient
+                    .Sites[_sharePointSiteId]
+                    .Drives[_driveId]
+                    .Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"]
+                    .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileUpload.FileName}")
+                    .Request()
+                    .GetAsync();
+
+                    if (existingFiles != null )
+                    {
+                        existingFilesList.Add(fileUpload);
+                    }
+                }
+                catch (Exception ex) { }
+            }
+            var updatedSharePointFileUploads = sharePointFileUploads.Except(existingFilesList).ToList();
+
             // Upload all files concurrently
             await UploadFilesInParallel(graphClient, sharePointFileUploads);
         }
@@ -54,6 +77,8 @@ namespace FileSorter.Helpers
         // Method to upload multiple files in parallel
         private async Task UploadFilesInParallel(GraphServiceClient graphClient, List<SharePointFileUpload> sharePointFileUploads)
         {
+            Stopwatch sw = Stopwatch.StartNew();
+            sw.Start();
             var uploadTasks = new List<Task>();
 
             // Use a limited number of concurrent tasks to avoid overwhelming the server
@@ -81,7 +106,8 @@ namespace FileSorter.Helpers
 
                 await Task.WhenAll(uploadTasks); // Wait for all uploads to complete
             }
-            
+
+            // If a file was not uploaded, we need to retry to upload it again
             _filesToRetry.RemoveAll(f => _filesRetriedSuccessful.Contains(f));
             if (_filesToRetry.Any() && _retries < 3)
             {
@@ -96,37 +122,9 @@ namespace FileSorter.Helpers
                 });
             }
 
-            var uploadedFiles = _db.ClientFiles.Where(x => x.UploadSessionGuid == _uploadSessionGuid).ToList();
-
-            // We need to ensure that all the files were properly uploaded to SharePoint so we check if the files are there
-            foreach (var file in sharePointFileUploads)
-            {
-                try
-                {
-                    var fileInSharePoint = await graphClient
-                    .Sites[_sharePointSiteId]
-                    .Drives[_driveId]
-                    .Root
-                    .ItemWithPath($"{file.SharePointFilePath}/{file.FileName}")
-                    .Request()
-                    .GetAsync();
-                    if (fileInSharePoint == null)
-                    {
-                        _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, null);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (_uploadedFiles.Contains(file))
-                    {
-                        _uploadedFiles.Remove(file);
-                    }
-                    _logging.Log($"The following error occurred while checking if the file was uploaded to SharePoint: {file.FileName} - {ex.Message}", file.ClientName, file.FileName, null);
-                }
-            }
-
             try
             {
+                // For all the successful uploads, we need to set the StatusId to 3
                 var filesNotUploaded = sharePointFileUploads.Where(f => !_uploadedFiles.Any(u => u.FileIntId == f.FileIntId)).ToList();
                 var uploadedFilesList = _uploadedFiles.ToList(); // This ensures that _uploadedFiles is evaluated in memory
                 var uploadedClients = (from c in _db.ClientFiles.AsEnumerable() // Switch to in-memory evaluation
@@ -145,6 +143,35 @@ namespace FileSorter.Helpers
             {
                 _logging.Log(ex.Message, null, null, null);
             }
+
+            // We need to ensure that all the files were properly uploaded to SharePoint so we check if the files are there
+            foreach (var file in sharePointFileUploads)
+            {
+                try
+                {
+                    var fileInSharePoint = await graphClient
+                    .Sites[_sharePointSiteId]
+                    .Drives[_driveId]
+                    //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // Use for testing
+                    //.Items[file.ClientFolderId] // Use for Production
+                    .Root
+                    .ItemWithPath($"{file.SharePointFilePath}/{file.FileName}")
+                    .Request()
+                    .GetAsync();
+                    if (fileInSharePoint == null)
+                    {
+                        _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, null);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (_uploadedFiles.Contains(file))
+                    {
+                        _uploadedFiles.Remove(file);
+                    }
+                    _logging.Log($"The following error occurred while checking if the file was uploaded to SharePoint: {file.FileName} - {ex.Message}", file.ClientName, file.FileName, null);
+                }
+            }
         }
 
         // Method to upload a single file to SharePoint
@@ -156,17 +183,30 @@ namespace FileSorter.Helpers
 
                 using (var fileStream = new FileStream(fileUpload.DriveFilePath, FileMode.Open))
                 {
+
+                    var driveItem = new DriveItem
+                    {
+                        Name = fileUpload.FileName,
+                        File = new Microsoft.Graph.File(),
+                        AdditionalData = new Dictionary<string, object>
+                        {
+                            {"@microsoft.graph.conflictBehavior", "fail"}
+                        }
+                    };
+
                     // Navigate to the SharePoint folder and create an upload session
                     var uploadSession = await graphClient
                         .Sites[_sharePointSiteId]
                         .Drives[_driveId]
+                        //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // User for testing 
+                        //.Items[fileUpload.ClientFolderId] // Use for Production
                         .Root
                         .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileName}")
                         .CreateUploadSession()
                         .Request()
                         .PostAsync();
 
-                    var maxChunkSize = 5 * 1024 * 1024; // 320 KB per chunk, adjust based on file sizes and network conditions
+                    var maxChunkSize = 320 * 1024; // 320 KB per chunk, adjust based on file sizes and network conditions
                     var fileUploadTask = new LargeFileUploadTask<DriveItem>(uploadSession, fileStream, maxChunkSize);
 
                     // Upload the file in chunks
@@ -232,6 +272,40 @@ namespace FileSorter.Helpers
                     await Task.Delay(calculatedDelay);
                 }
             }
+        }
+
+        private async Task ValidateUploadedFiles(GraphServiceClient graphClient, List<SharePointFileUpload> sharePointFileUploads)
+        {
+            foreach (var file in sharePointFileUploads)
+            {
+                try
+                {
+                    var fileInSharePoint = await graphClient
+                    .Sites[_sharePointSiteId]
+                    .Drives[_driveId]
+                    .Root
+                    .ItemWithPath($"{file.SharePointFilePath}/{file.FileName}")
+                    .Request()
+                    .GetAsync();
+                    if (fileInSharePoint == null)
+                    {
+                        _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, null);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (_uploadedFiles.Contains(file))
+                    {
+                        _uploadedFiles.Remove(file);
+                    }
+                    _logging.Log($"The following error occurred while checking if the file was uploaded to SharePoint: {file.FileName} - {ex.Message}", file.ClientName, file.FileName, null);
+                }
+            }
+        }
+
+        private void ValidateFiles(GraphServiceClient graphClient, List<SharePointFileUpload> sharePointFileUploads)
+        {
+            ValidateUploadedFiles(graphClient, sharePointFileUploads).Wait();
         }
 
         // Method to get the authenticated Graph Client using ClientSecretCredential

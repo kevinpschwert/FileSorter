@@ -7,5 +7,6 @@ namespace FileSorter.Cached.Models
     {
         public List<FolderMapping> FolderMapping { get; set; }
         public List<Clients> Clients { get; set; }
+        public List<SharePointFolders> SharePointsFolders { get; set; }
     }
 }

@@ -8,5 +8,6 @@
         public string? FileName { get; set; }
         public string ClientName { get; set; }
         public string UploadSessionGuid { get; set; }
+        public string ClientFolderId { get; set; }
     }
 }
