@@ -5,6 +5,7 @@ using FileSorter.Entities;
 using FileSorter.Interfaces;
 using FileSorter.Logging.Interfaces;
 using FileSorter.Models;
+using Microsoft.VisualBasic.FileIO;
 using System.Diagnostics;
 using System.IO.Compression;
 using static FileSorter.Common.Constants;
@@ -36,7 +37,7 @@ namespace FileSorter.Helpers
             Stopwatch sw = new Stopwatch();
             sw.Start();
             string extractPath = "C:\\Users\\cchdoc\\Desktop\\ExportClients";
-            string destinationPath = Path.Combine(extractPath, "ConsolidateData_New");
+            string destinationPath = Path.Combine(extractPath, "ConsolidateData");
             List<ClientFiles> clientFileList = new List<ClientFiles>();
             var files = new ArrayOfExportFileMetadata();
             IEnumerable<ZipArchiveEntry>? xmlFile = null;
@@ -212,13 +213,20 @@ namespace FileSorter.Helpers
         public string XCMId { get; set; }
         public static Pod FromCsv(string csvLine)
         {
-            string[] values = csvLine.Split(",");
-            Pod pod = new Pod();
-            pod.ZohoId = values[0].ToString();
-            pod.CWAId = values[1].ToString();
-            pod.Client = $"{values[2].ToString()} {values[3].ToString()}";
-            pod.XCMId = values[5].ToString();
-            return pod;
+            using (TextFieldParser parser = new TextFieldParser(new StringReader(csvLine)))
+            {
+                parser.TextFieldType = FieldType.Delimited;
+                parser.SetDelimiters(",");
+                parser.HasFieldsEnclosedInQuotes = true;
+
+                string[] values = parser.ReadFields();
+                Pod pod = new Pod();
+                pod.ZohoId = values[0].ToString();
+                pod.Client = values[1].ToString();
+                pod.CWAId = values[2].ToString();
+                pod.XCMId = values[4].ToString();
+                return pod;
+            }
         }
     }
 

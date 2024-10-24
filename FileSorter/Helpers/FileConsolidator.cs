@@ -33,20 +33,19 @@ namespace FileSorter.Helpers
             foreach (var file in files.ClientFiles)
             {
                 try
-                {  
+                {
                     _fileName = file.FileName;
                     _clientFile = file.EntityName;
                     FolderMapping folderMapping = new FolderMapping();
                     bool shouldAddToSharePoint = true;
-                    string contactAccountFolder = file.EntityID.Contains("-5") ? MainFolder.ACCOUNTS : MainFolder.CONTACTS;
+                    //string contactAccountFolder = "ITTest";
+                    string contactAccountFolder = file.EntityID.Contains("-1") || !file.EntityID.Contains("-") ? MainFolder.CONTACTS : MainFolder.ACCOUNTS;
                     var dbFolderMapping = _cachedService.FolderMapping.Where(x => x.Class == file.Class && x.Subclass == file.Subclass);
-                    // If the class and subclass of a file do not have a mapping, then we set a default mapping for it and do not add it to SharePoint
                     if (!dbFolderMapping.Any())
                     {
                         folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == null && x.Subclass == null);
                         shouldAddToSharePoint = false;
                     }
-                    // If the file mapping is depending on the Account Type is has, we need to make sure we get the correct mapping per the Account Type
                     else if (!string.IsNullOrEmpty(dbFolderMapping.FirstOrDefault().AccountType))
                     {
                         var folderMappingAcctType = contactAccountFolder == MainFolder.ACCOUNTS ? dbFolderMapping.Where(x => x.AccountType == AccountType.PARTNERSHIPS) : dbFolderMapping.Where(x => x.AccountType == AccountType.INDIVIDUAL);
@@ -89,8 +88,7 @@ namespace FileSorter.Helpers
                     string filePath = $"{destinationPath}\\{contactAccountFolder}";
                     string clientFolder = $"{file.EntityName} - {file.EntityID}";
                     string clientIdFolder = string.Empty;
-                    var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId.Split("-")[0] == file.EntityID.Split("-")[0] || x.XCMId?.Split("-")[0] == file.EntityID.Split("-")[0] || x.ClientName == file.EntityName);
-                    // If the Client does not have a Zoho Id mapped to it, then we need to add it to a different folder
+                    var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId == file.EntityID || x.XCMId == file.EntityID);
                     if (zohoMapping is null)
                     {
                         if (!clientsNoZohoMapping.Contains(file.EntityName))
@@ -182,11 +180,12 @@ namespace FileSorter.Helpers
                     else
                     {
                         string driveFilePath = Path.Combine(subClass, _fileName);
+                        //var sharePointFilePath = driveFilePath.Split("\\ConsolidateData_New")[1].Replace("\\", "/").Replace(_fileName, string.Empty);
                         var sharePointFilePath = driveFilePath.Split(clientIdFolder)[1].Replace("\\", "/").Replace(_fileName, string.Empty);
                         clientFiles.DriveFilePath = driveFilePath;
                         clientFiles.SharePointFilePath = sharePointFilePath;
                         clientFiles.FolderMappingId = folderMapping.FolderMappingId;
-                        clientFiles.ModifiedDate = DateTime.Now; 
+                        clientFiles.ModifiedDate = DateTime.Now;
                         clientFiles.StatusId = (int)Status.Processed;
                         _db.Update(clientFiles);
                         if (shouldAddToSharePoint)

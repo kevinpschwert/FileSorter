@@ -47,31 +47,53 @@ namespace FileSorter.Helpers
             _uploadSessionGuid = uploadSessionGuid;
             var graphClient = GetAuthenticatedGraphClient();
 
-            // Since adding a duplicate file will erase the most current file on SharePoint, we need to verify that there are no duplicate files
-            List<SharePointFileUpload> existingFilesList = new List<SharePointFileUpload>();
-            foreach (var fileUpload in sharePointFileUploads)
-            {
-                try
-                {
-                    var existingFiles = await graphClient
-                    .Sites[_sharePointSiteId]
-                    .Drives[_driveId]
-                    .Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"]
-                    .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileUpload.FileName}")
-                    .Request()
-                    .GetAsync();
-
-                    if (existingFiles != null )
-                    {
-                        existingFilesList.Add(fileUpload);
-                    }
-                }
-                catch (Exception ex) { }
-            }
-            var updatedSharePointFileUploads = sharePointFileUploads.Except(existingFilesList).ToList();
-
             // Upload all files concurrently
             await UploadFilesInParallel(graphClient, sharePointFileUploads);
+        }
+
+        public async Task VerifyUploadedFiles(List<string> files)
+        {
+            _clientId = _configuration["SharePointOnline:client_id"];
+            _clientSecret = _configuration["SharePointOnline:client_secret"];
+            _tenantId = _configuration["SharePointOnline:tenant"];
+            var graphClient = GetAuthenticatedGraphClient();
+            foreach (var xml in files)
+            {
+                var uploadSessionId = _db.UploadSessions.FirstOrDefault(x => x.XMLFile == xml).UploadSessionGuid;
+                var cf = _db.ClientFiles.ToList();
+                var filesToUpload = cf.Where(x => x.UploadSessionGuid == uploadSessionId && x.StatusId == (int)Common.Status.Processed && (x.FolderName == FileClass.PERMANENT || (int.TryParse(x.FolderName, out int year) && year >= 2020))).ToList();
+                var sharePointFileUpload = filesToUpload.Select(x => new SharePointFileUpload
+                {
+                    DriveFilePath = x.DriveFilePath,
+                    SharePointFilePath = x.SharePointFilePath,
+                    FileIntId = x.FileIntID,
+                    ClientName = x.EntityName,
+                    UploadSessionGuid = x.UploadSessionGuid,
+                    FileName = x.FileName
+                }).ToList();
+                foreach (var file in sharePointFileUpload)
+                {
+                    try
+                    {
+                        var fileInSharePoint = await graphClient
+                        .Sites[_sharePointSiteId]
+                        .Drives[_driveId]
+                        //.Items[file.ClientFolderId]
+                        .Root
+                        .ItemWithPath($"{file.SharePointFilePath}/{file.FileName}")
+                        .Request()
+                        .GetAsync();
+                        if (fileInSharePoint == null)
+                        {
+                            _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, null);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                }
+            }
         }
 
         // Method to upload multiple files in parallel
@@ -107,7 +129,6 @@ namespace FileSorter.Helpers
                 await Task.WhenAll(uploadTasks); // Wait for all uploads to complete
             }
 
-            // If a file was not uploaded, we need to retry to upload it again
             _filesToRetry.RemoveAll(f => _filesRetriedSuccessful.Contains(f));
             if (_filesToRetry.Any() && _retries < 3)
             {
@@ -124,7 +145,6 @@ namespace FileSorter.Helpers
 
             try
             {
-                // For all the successful uploads, we need to set the StatusId to 3
                 var filesNotUploaded = sharePointFileUploads.Where(f => !_uploadedFiles.Any(u => u.FileIntId == f.FileIntId)).ToList();
                 var uploadedFilesList = _uploadedFiles.ToList(); // This ensures that _uploadedFiles is evaluated in memory
                 var uploadedClients = (from c in _db.ClientFiles.AsEnumerable() // Switch to in-memory evaluation
@@ -198,11 +218,17 @@ namespace FileSorter.Helpers
                     var uploadSession = await graphClient
                         .Sites[_sharePointSiteId]
                         .Drives[_driveId]
-                        //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // User for testing 
+                        //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // Use for testing 
                         //.Items[fileUpload.ClientFolderId] // Use for Production
                         .Root
                         .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileName}")
-                        .CreateUploadSession()
+                        .CreateUploadSession(new DriveItemUploadableProperties
+                        {
+                            AdditionalData = new Dictionary<string, object>
+                            {
+                                {"@microsoft.graph.conflictBehavior", "fail"} // Ensure the upload fails if the file exists
+                            }
+                        })
                         .Request()
                         .PostAsync();
 
@@ -233,7 +259,7 @@ namespace FileSorter.Helpers
             }
             catch (Exception ex)
             {
-                if (!_filesToRetry.Contains(fileUpload))
+                if (!_filesToRetry.Contains(fileUpload) && !ex.Message.Contains("The specified item name already exists."))
                 {
                     _filesToRetry.Add(fileUpload);
                 }
