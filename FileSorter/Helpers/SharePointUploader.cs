@@ -78,14 +78,14 @@ namespace FileSorter.Helpers
                         var fileInSharePoint = await graphClient
                         .Sites[_sharePointSiteId]
                         .Drives[_driveId]
-                        //.Items[file.ClientFolderId]
-                        .Root
+                        .Items[file.ClientFolderId]
+                        //.Root
                         .ItemWithPath($"{file.SharePointFilePath}/{file.FileName}")
                         .Request()
                         .GetAsync();
                         if (fileInSharePoint == null)
                         {
-                            _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, null);
+                            _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, file.XMLFile);
                         }
                     }
                     catch (Exception ex)
@@ -139,7 +139,7 @@ namespace FileSorter.Helpers
             {
                 _filesToRetry.ForEach(f =>
                 {
-                    _logging.Log($"The following files were not uplaoded to SharePoint: {f.FileName}", f.ClientName, f.FileName, null);
+                    _logging.Log($"The following files were not uploaded to SharePoint: {f.FileName}", f.ClientName, f.FileName, f.XMLFile);
                 });
             }
 
@@ -173,14 +173,14 @@ namespace FileSorter.Helpers
                     .Sites[_sharePointSiteId]
                     .Drives[_driveId]
                     //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // Use for testing
-                    //.Items[file.ClientFolderId] // Use for Production
-                    .Root
+                    .Items[file.ClientFolderId] // Use for Production
+                    //.Root
                     .ItemWithPath($"{file.SharePointFilePath}/{file.FileName}")
                     .Request()
                     .GetAsync();
                     if (fileInSharePoint == null)
                     {
-                        _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, null);
+                        _logging.Log($"The following file was not uploaded to SharePoint: {file.FileName}", file.ClientName, file.FileName, file.XMLFile);
                     }
                 }
                 catch (Exception ex)
@@ -189,7 +189,7 @@ namespace FileSorter.Helpers
                     {
                         _uploadedFiles.Remove(file);
                     }
-                    _logging.Log($"The following error occurred while checking if the file was uploaded to SharePoint: {file.FileName} - {ex.Message}", file.ClientName, file.FileName, null);
+                    _logging.Log($"The following error occurred while checking if the file was uploaded to SharePoint: {file.FileName} - {ex.Message}", file.ClientName, file.FileName, file.XMLFile);
                 }
             }
         }
@@ -219,8 +219,8 @@ namespace FileSorter.Helpers
                         .Sites[_sharePointSiteId]
                         .Drives[_driveId]
                         //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // Use for testing 
-                        //.Items[fileUpload.ClientFolderId] // Use for Production
-                        .Root
+                        .Items[fileUpload.ClientFolderId] // Use for Production
+                        //.Root
                         .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileName}")
                         .CreateUploadSession(new DriveItemUploadableProperties
                         {

@@ -84,7 +84,14 @@ namespace FileSorter.Helpers
                     Directory.Delete($"{extractPath}\\{zippedFile}", true);
                     var di = new DirectoryInfo(extractPath);
                     var xmlFileToDelete = di.GetFiles().FirstOrDefault(x => x.Name == xmlFile.FirstOrDefault().FullName);
-                    xmlFileToDelete.Delete();
+                    if (xmlFileToDelete == null)
+                    {
+                        _logging.Log($"The following Zip File failed: {zippedFile}", null, null, zippedFile);
+                    }
+                    else
+                    {
+                        xmlFileToDelete.Delete();
+                    }
                 }
             }
 

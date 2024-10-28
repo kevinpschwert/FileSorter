@@ -89,7 +89,7 @@ namespace FileSorter.Helpers
                     string clientFolder = $"{file.EntityName} - {file.EntityID}";
                     string clientIdFolder = string.Empty;
                     var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId == file.EntityID || x.XCMId == file.EntityID);
-                    if (zohoMapping is null)
+                    if (zohoMapping is null || string.IsNullOrEmpty(zohoMapping?.ZohoId))
                     {
                         if (!clientsNoZohoMapping.Contains(file.EntityName))
                         {
@@ -201,7 +201,8 @@ namespace FileSorter.Helpers
                                     ClientName = file.EntityName,
                                     UploadSessionGuid = uploadSessionGuid,
                                     FileName = file.FileName,
-                                    ClientFolderId = clientInSharePoint.ClientFolderId
+                                    ClientFolderId = clientInSharePoint.ClientFolderId,
+                                    XMLFile = xmlFile
                                 };
                                 sharePointFileList.Add(sharePointFile);
                             }
