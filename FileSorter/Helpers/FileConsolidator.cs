@@ -46,6 +46,10 @@ namespace FileSorter.Helpers
                         folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.Class == null && x.Subclass == null);
                         shouldAddToSharePoint = false;
                     }
+                    else if (string.IsNullOrEmpty(file.FolderName) || (file.FolderName == FileClass.PERMANENT && (file.Year == 0 || (file.Year is > 2000 and < 2020)) && file.Class != FileClass.PERMANENT))
+                    {
+                        folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.FolderMappingId == (int)DefaultFolderMapping.LongTermPlanningDocuments);
+                    }
                     else if (!string.IsNullOrEmpty(dbFolderMapping.FirstOrDefault().AccountType))
                     {
                         var folderMappingAcctType = contactAccountFolder == MainFolder.ACCOUNTS ? dbFolderMapping.Where(x => x.AccountType == AccountType.PARTNERSHIPS) : dbFolderMapping.Where(x => x.AccountType == AccountType.INDIVIDUAL);
@@ -64,10 +68,6 @@ namespace FileSorter.Helpers
                                 folderMapping = folderMappingAcctType.FirstOrDefault();
                             }
                         }
-                    }
-                    else if (string.IsNullOrEmpty(file.FolderName) || (file.FolderName == FileClass.PERMANENT && (file.Year is > 2000 and < 2020) && file.Class != FileClass.PERMANENT))
-                    {
-                        folderMapping = _cachedService.FolderMapping.FirstOrDefault(x => x.FolderMappingId == (int)DefaultFolderMapping.LongTermPlanningDocuments);
                     }
                     else if (dbFolderMapping.Count() == 1)
                     {
@@ -88,7 +88,11 @@ namespace FileSorter.Helpers
                     string filePath = $"{destinationPath}\\{contactAccountFolder}";
                     string clientFolder = $"{file.EntityName} - {file.EntityID}";
                     string clientIdFolder = string.Empty;
-                    var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId == file.EntityID || x.XCMId == file.EntityID);
+                    var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId == file.EntityID || x.XCMId == file.EntityID && !string.IsNullOrEmpty(x.ZohoId));
+                    if (zohoMapping is null)
+                    {
+                        zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId == file.EntityID || x.XCMId == file.EntityID);
+                    }
                     if (zohoMapping is null || string.IsNullOrEmpty(zohoMapping?.ZohoId))
                     {
                         if (!clientsNoZohoMapping.Contains(file.EntityName))
@@ -202,7 +206,8 @@ namespace FileSorter.Helpers
                                     UploadSessionGuid = uploadSessionGuid,
                                     FileName = file.FileName,
                                     ClientFolderId = clientInSharePoint.ClientFolderId,
-                                    XMLFile = xmlFile
+                                    XMLFile = xmlFile,
+                                    DateModified = file.DateModified
                                 };
                                 sharePointFileList.Add(sharePointFile);
                             }

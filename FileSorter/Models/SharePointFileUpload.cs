@@ -10,5 +10,6 @@
         public string UploadSessionGuid { get; set; }
         public string ClientFolderId { get; set; }
         public string XMLFile { get; set; }
+        public DateTime? DateModified { get; set; }
     }
 }

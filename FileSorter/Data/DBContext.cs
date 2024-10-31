@@ -24,5 +24,7 @@ namespace FileSorter.Data
         public DbSet<UploadSession> UploadSessions { get; set; }
 
         public DbSet<SharePointFolders> SharePointFolders { get; set; }
+
+        public DbSet<ZohoExport> ZohoExports { get; set; }
     }
 }

@@ -22,7 +22,9 @@ namespace FileSorter.Helpers
         private List<SharePointFileUpload> _uploadedFiles = new List<SharePointFileUpload>();
         private List<SharePointFileUpload> _filesToRetry = new List<SharePointFileUpload>();
         private List<SharePointFileUpload> _filesRetriedSuccessful = new List<SharePointFileUpload>();
+        private List<SharePointFileUpload> _duplicateFileList = new List<SharePointFileUpload>();
         private int _retries = 0;
+        private int _duplicateFilesRetries = 0;
         private static readonly int _maxRetries = 3;            // Maximum retry attempts
         private static readonly int _baseDelay = 1000;          // Base delay for exponential backoff in milliseconds
         private static readonly double _exponentialFactor = 2;
@@ -97,7 +99,7 @@ namespace FileSorter.Helpers
         }
 
         // Method to upload multiple files in parallel
-        private async Task UploadFilesInParallel(GraphServiceClient graphClient, List<SharePointFileUpload> sharePointFileUploads)
+        private async Task UploadFilesInParallel(GraphServiceClient graphClient, List<SharePointFileUpload> sharePointFileUploads, bool isDuplicate = false)
         {
             Stopwatch sw = Stopwatch.StartNew();
             sw.Start();
@@ -117,7 +119,7 @@ namespace FileSorter.Helpers
                     {
                         try
                         {
-                            await UploadFileToSharePoint(graphClient, fileUpload);
+                            await UploadFileToSharePoint(graphClient, fileUpload, isDuplicate);
                         }
                         finally
                         {
@@ -129,6 +131,7 @@ namespace FileSorter.Helpers
                 await Task.WhenAll(uploadTasks); // Wait for all uploads to complete
             }
 
+            await RetryDuplicateFiles(graphClient, _duplicateFileList);
             _filesToRetry.RemoveAll(f => _filesRetriedSuccessful.Contains(f));
             if (_filesToRetry.Any() && _retries < 3)
             {
@@ -164,6 +167,7 @@ namespace FileSorter.Helpers
                 _logging.Log(ex.Message, null, null, null);
             }
 
+            sharePointFileUploads.RemoveAll(f => _duplicateFileList.Contains(f));
             // We need to ensure that all the files were properly uploaded to SharePoint so we check if the files are there
             foreach (var file in sharePointFileUploads)
             {
@@ -195,7 +199,7 @@ namespace FileSorter.Helpers
         }
 
         // Method to upload a single file to SharePoint
-        private async Task UploadFileToSharePoint(GraphServiceClient graphClient, SharePointFileUpload fileUpload)
+        private async Task UploadFileToSharePoint(GraphServiceClient graphClient, SharePointFileUpload fileUpload, bool isDuplicate = false)
         {
             try
             {
@@ -214,6 +218,12 @@ namespace FileSorter.Helpers
                         }
                     };
 
+                    string itemWithPath = $"{fileUpload.SharePointFilePath}/{fileName}";
+                    if (isDuplicate)
+                    {
+                        itemWithPath = $"{fileUpload.SharePointFilePath}/Newer_{fileName}";
+                    }
+
                     // Navigate to the SharePoint folder and create an upload session
                     var uploadSession = await graphClient
                         .Sites[_sharePointSiteId]
@@ -221,7 +231,7 @@ namespace FileSorter.Helpers
                         //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // Use for testing 
                         .Items[fileUpload.ClientFolderId] // Use for Production
                         //.Root
-                        .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileName}")
+                        .ItemWithPath(itemWithPath)
                         .CreateUploadSession(new DriveItemUploadableProperties
                         {
                             AdditionalData = new Dictionary<string, object>
@@ -263,6 +273,40 @@ namespace FileSorter.Helpers
                 {
                     _filesToRetry.Add(fileUpload);
                 }
+                else if (ex.Message.Contains("The specified item name already exists.") && _duplicateFilesRetries == 0)
+                {
+                    var existingFile = await graphClient
+                    .Sites[_sharePointSiteId]
+                    .Drives[_driveId]
+                    .Items[fileUpload.ClientFolderId]
+                    //.Root
+                    .ItemWithPath($"{fileUpload.SharePointFilePath}/{fileUpload.FileName}")
+                    .Request()
+                    .GetAsync();
+                    DateTimeOffset? sharePointFileLastModified = existingFile.LastModifiedDateTime;
+
+                    if (fileUpload.DateModified < sharePointFileLastModified)
+                    {
+                        _duplicateFileList.Add(fileUpload);
+                    }
+                }
+            }
+        }
+
+        private async Task RetryDuplicateFiles(GraphServiceClient graphClient, List<SharePointFileUpload> fileUpload)
+        {
+            if (_duplicateFileList.Any() && _duplicateFilesRetries == 0)
+            {
+                _duplicateFilesRetries++;
+                await UploadFilesInParallel(graphClient, _duplicateFileList, true);
+            }
+            else if (_duplicateFileList.Any())
+            {
+                _duplicateFileList.ForEach(f =>
+                {
+                    _logging.Log($"The following duplicate files were not uploaded to SharePoint: {f.FileName}", f.ClientName, f.FileName, f.XMLFile);
+                });
+                _duplicateFileList = new List<SharePointFileUpload>();
             }
         }
 

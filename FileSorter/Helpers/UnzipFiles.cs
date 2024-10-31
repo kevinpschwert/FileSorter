@@ -138,23 +138,50 @@ namespace FileSorter.Helpers
 
         public async Task RetryUploadFiles(List<string> files)
         {
+            //foreach (var file in files)
+            //{
+            //    var uploadSessionId = _db.UploadSessions.FirstOrDefault(x => x.XMLFile == file).UploadSessionGuid;
+            //    var cf = _db.ClientFiles.ToList();
+            //    var filesToUpload = cf.Where(x => x.UploadSessionGuid == uploadSessionId && x.StatusId == (int)Status.Processed && !string.IsNullOrEmpty(x.SharePointFilePath) && (x.FolderName == FileClass.PERMANENT || (int.TryParse(x.FolderName, out int year) && year >= 2020))).ToList();
+            //    var sharePointFileUpload = filesToUpload.Select(x => new SharePointFileUpload
+            //    {
+            //        DriveFilePath = x.DriveFilePath,
+            //        SharePointFilePath = x.SharePointFilePath,
+            //        FileIntId = x.FileIntID,
+            //        ClientName = x.EntityName,
+            //        UploadSessionGuid = x.UploadSessionGuid,
+            //        FileName = x.FileName
+            //    }).ToList();
+            //    await _sharePointUploader.Upload(sharePointFileUpload, uploadSessionId);
+            //}
             foreach (var file in files)
             {
                 var uploadSessionId = _db.UploadSessions.FirstOrDefault(x => x.XMLFile == file).UploadSessionGuid;
                 var cf = _db.ClientFiles.ToList();
                 var filesToUpload = cf.Where(x => x.UploadSessionGuid == uploadSessionId && x.StatusId == (int)Status.Processed && !string.IsNullOrEmpty(x.SharePointFilePath) && (x.FolderName == FileClass.PERMANENT || (int.TryParse(x.FolderName, out int year) && year >= 2020))).ToList();
-                var sharePointFileUpload = filesToUpload.Select(x => new SharePointFileUpload
+                List<SharePointFileUpload> sharePointFileUploads = new List<SharePointFileUpload>();
+
+                foreach (var upload in filesToUpload)
                 {
-                    DriveFilePath = x.DriveFilePath,
-                    SharePointFilePath = x.SharePointFilePath,
-                    FileIntId = x.FileIntID,
-                    ClientName = x.EntityName,
-                    UploadSessionGuid = x.UploadSessionGuid,
-                    FileName = x.FileName
-                }).ToList();
-                await _sharePointUploader.Upload(sharePointFileUpload, uploadSessionId);
+                    var zohoMapping = _cachedService.Clients.FirstOrDefault(x => x.CWAId == upload.EntityID || x.XCMId == upload.EntityID && !string.IsNullOrEmpty(x.ZohoId));
+                    if (zohoMapping is not null)
+                    {
+                        var clientInSharePoint = _cachedService.SharePointsFolders.FirstOrDefault(x => x.Client.Contains(zohoMapping.ZohoId));
+                        var sharePointFileUpload = filesToUpload.Select(x => new SharePointFileUpload
+                        {
+                            DriveFilePath = x.DriveFilePath,
+                            SharePointFilePath = x.SharePointFilePath,
+                            FileIntId = x.FileIntID,
+                            ClientName = x.EntityName,
+                            UploadSessionGuid = x.UploadSessionGuid,
+                            FileName = x.FileName,
+                            ClientFolderId = clientInSharePoint.ClientFolderId,
+                            XMLFile = file
+                        }).ToList();
+                    }
+                }
+                await _sharePointUploader.Upload(sharePointFileUploads, uploadSessionId);
             }
-        }
     }
 
     public class UploadZohoClientMapping
@@ -185,27 +212,43 @@ namespace FileSorter.Helpers
             //    _db.Clients.Add(clients);
             //}
 
-            List<Mapping> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\MappingAccountType.csv")
-                                         .Skip(0)
-                                          .Select(v => Mapping.FromCsv(v))
-                                          .ToList();
+            //List<Mapping> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\MappingAccountType.csv")
+            //                             .Skip(0)
+            //                              .Select(v => Mapping.FromCsv(v))
+            //                              .ToList();
 
-            long counter = 1;
+            //long counter = 1;
+
+            //foreach (var value in values)
+            //{
+            //    Entities.FolderMapping folderMapping = new Entities.FolderMapping()
+            //    {
+            //        FolderMappingId = counter,
+            //        AccountType = value.AccountType,
+            //        Class = value.Class,
+            //        Subclass = value.SubClass,
+            //        Level2 = value.Level2,
+            //        Level3 = value.Level3,
+            //        Level4 = value.Level4,
+            //    };
+            //    _db.FolderMappings.Add(folderMapping);
+            //    counter++;
+            //}
+
+            List<Zoho> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ZohoList.csv")
+                               .Skip(1)
+                               .Select(v => Zoho.FromCsv(v))
+                               .ToList();
 
             foreach (var value in values)
             {
-                Entities.FolderMapping folderMapping = new Entities.FolderMapping()
+                ZohoExport zoho = new ZohoExport
                 {
-                    FolderMappingId = counter,
-                    AccountType = value.AccountType,
-                    Class = value.Class,
-                    Subclass = value.SubClass,
-                    Level2 = value.Level2,
-                    Level3 = value.Level3,
-                    Level4 = value.Level4,
+                    ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
+                    CWAId = value.CWAId,
+                    ClientName = value.Client
                 };
-                _db.FolderMappings.Add(folderMapping);
-                counter++;
+                _db.ZohoExports.Add(zoho);
             }
 
             _db.SaveChanges();
@@ -233,6 +276,29 @@ namespace FileSorter.Helpers
                 pod.CWAId = values[2].ToString();
                 pod.XCMId = values[4].ToString();
                 return pod;
+            }
+        }
+    }
+
+    public class Zoho
+    {
+        public string ZohoId { get; set; }
+        public string CWAId { get; set; }
+        public string Client { get; set; }
+        public static Zoho FromCsv(string csvLine)
+        {
+            using (TextFieldParser parser = new TextFieldParser(new StringReader(csvLine)))
+            {
+                parser.TextFieldType = FieldType.Delimited;
+                parser.SetDelimiters(",");
+                parser.HasFieldsEnclosedInQuotes = true;
+
+                string[] values = parser.ReadFields();
+                Zoho zoho = new Zoho();
+                zoho.ZohoId = values[0].ToString();
+                zoho.Client = values[1].ToString();
+                zoho.CWAId = values[2].ToString();
+                return zoho;
             }
         }
     }
