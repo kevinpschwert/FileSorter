@@ -27,7 +27,7 @@
     <PackageReference Include="PnP.Core.Auth" Version="1.13.0" />
     <PackageReference Include="PnP.Framework" Version="1.16.0" />
     <PackageReference Include="TTCUE.NetCore.SharepointOnline.CSOM.16.1.8029.1200" Version="16.1.8029.1200" />
-    <PackageReference Include="Z.EntityFramework.Plus.EFCore" Version="8.103.4" />
+    <PackageReference Include="Z.EntityFramework.Plus.EFCore" Version="8.103.6" />
   </ItemGroup>
 
 </Project>

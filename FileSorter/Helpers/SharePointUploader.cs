@@ -285,7 +285,7 @@ namespace FileSorter.Helpers
                     .GetAsync();
                     DateTimeOffset? sharePointFileLastModified = existingFile.LastModifiedDateTime;
 
-                    if (fileUpload.DateModified < sharePointFileLastModified)
+                    if (fileUpload.DateModified > sharePointFileLastModified)
                     {
                         _duplicateFileList.Add(fileUpload);
                     }

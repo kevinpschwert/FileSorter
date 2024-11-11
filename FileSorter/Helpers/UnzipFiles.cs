@@ -182,6 +182,7 @@ namespace FileSorter.Helpers
                 }
                 await _sharePointUploader.Upload(sharePointFileUploads, uploadSessionId);
             }
+        }
     }
 
     public class UploadZohoClientMapping
@@ -195,22 +196,22 @@ namespace FileSorter.Helpers
 
         public void UploadCsv()
         {
-            //List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\NLC_New.csv")
-            //                               .Skip(1)
-            //                               .Select(v => Pod.FromCsv(v))
-            //                               .ToList();
+            List<Pod> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\Clients.csv")
+                                           .Skip(1)
+                                           .Select(v => Pod.FromCsv(v))
+                                           .ToList();
 
-            //foreach (var value in values)
-            //{
-            //    Clients clients = new Clients
-            //    {
-            //        ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
-            //        CWAId = value.CWAId,
-            //        ClientName = value.Client,
-            //        XCMId = value.XCMId
-            //    };
-            //    _db.Clients.Add(clients);
-            //}
+            foreach (var value in values)
+            {
+                Clients clients = new Clients
+                {
+                    ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
+                    CWAId = value.CWAId,
+                    ClientName = value.Client,
+                    XCMId = value.XCMId
+                };
+                _db.Clients.Add(clients);
+            }
 
             //List<Mapping> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ClientCSV\\MappingAccountType.csv")
             //                             .Skip(0)
@@ -235,21 +236,21 @@ namespace FileSorter.Helpers
             //    counter++;
             //}
 
-            List<Zoho> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ZohoList.csv")
-                               .Skip(1)
-                               .Select(v => Zoho.FromCsv(v))
-                               .ToList();
+            //List<Zoho> values = System.IO.File.ReadAllLines("C:\\Users\\cchdoc\\Desktop\\ZohoList.csv")
+            //                   .Skip(1)
+            //                   .Select(v => Zoho.FromCsv(v))
+            //                   .ToList();
 
-            foreach (var value in values)
-            {
-                ZohoExport zoho = new ZohoExport
-                {
-                    ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
-                    CWAId = value.CWAId,
-                    ClientName = value.Client
-                };
-                _db.ZohoExports.Add(zoho);
-            }
+            //foreach (var value in values)
+            //{
+            //    ZohoExport zoho = new ZohoExport
+            //    {
+            //        ZohoId = value.ZohoId.Replace("zcrm_", string.Empty),
+            //        CWAId = value.CWAId,
+            //        ClientName = value.Client
+            //    };
+            //    _db.ZohoExports.Add(zoho);
+            //}
 
             _db.SaveChanges();
         }
@@ -274,7 +275,7 @@ namespace FileSorter.Helpers
                 pod.ZohoId = values[0].ToString();
                 pod.Client = values[1].ToString();
                 pod.CWAId = values[2].ToString();
-                pod.XCMId = values[4].ToString();
+                pod.XCMId = values[3].ToString();
                 return pod;
             }
         }

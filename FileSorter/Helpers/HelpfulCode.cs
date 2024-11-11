@@ -1,5 +1,4 @@
 ﻿using Azure.Identity;
-using FileSorter.Cached.Interfaces;
 using FileSorter.Data;
 using FileSorter.Entities;
 using FileSorter.Logging.Interfaces;
@@ -24,10 +23,163 @@ namespace FileSorter.Helpers
         private static readonly int _baseDelay = 1000;          // Base delay for exponential backoff in milliseconds
         private static readonly double _exponentialFactor = 2;
 
-        public HelpfulCode(IConfiguration configuration, ILogging logging)
+        public HelpfulCode(IConfiguration configuration, ILogging logging, DBContext db)
         {
             _configuration = configuration;
             _logging = logging;
+            _db = db;
+        }
+
+        public async Task MoveFilesAsync()
+        {
+            _clientId = _configuration["SharePointOnline:client_id"];
+            _clientSecret = _configuration["SharePointOnline:client_secret"];
+            _tenantId = _configuration["SharePointOnline:tenant"];
+            _sharePointSiteId = _configuration["SharePointOnline:site_id"];
+            _driveId = _configuration["SharePointOnline:drive_id"];
+            var graphClient = GetAuthenticatedGraphClient();
+            var clientFiles = _db.ClientFiles.ToList();
+            var sharePointFolders = _db.SharePointFolders.ToList();
+            //var filesToMove = clientFiles.Where(x => x.Class == "Planning" && x.Subclass == "Main" && x.SharePointFilePath == "/Permanent/Long-Term Correspondence/" && x.StatusId == 3).ToList().OrderBy(x => x.EntityName);
+            var filesToMove = clientFiles.Where(x => x.FolderMappingId == 98 && !string.IsNullOrEmpty(x.FolderName) && x.SharePointFilePath == "/Permanent/Long-Term Correspondence/" && x.StatusId == 3).ToList().OrderBy(x => x.EntityName);
+            var distinctClient = filesToMove.Select(x => x.EntityName).Distinct().OrderBy(x => x);
+            Dictionary<string, string> folderIdList = new Dictionary<string, string>();
+            var clientName = string.Empty;
+            var fileName = string.Empty;
+            foreach (var dc in distinctClient)
+            {
+                var entityId = clientFiles.FirstOrDefault(x => x.EntityName == dc).EntityID;
+                var client = _db.Clients.Where(x => x.CWAId == entityId || x.XCMId == entityId).FirstOrDefault();
+                var clientInSharePoint = sharePointFolders.FirstOrDefault(x => x.Client.Contains(client.ZohoId));
+                folderIdList.Add(dc, clientInSharePoint.ClientFolderId);
+            }
+
+            foreach (var folder in folderIdList)
+            {
+                var folders = await graphClient
+                        .Sites[_sharePointSiteId]
+                        .Drives[_driveId]
+                        .Items[folder.Value]
+                        .Children
+                        .Request()
+                        .GetAsync();
+                var folderNames = folders.Select(x => x.Name).ToList();
+                if (!folderNames.Contains("Permanent"))
+                {
+                    _logging.Log($"The following Client does not have a the Permanent folder: {clientName}");
+                    continue;
+                }
+                var permanentFolder = folders.FirstOrDefault(x => x.Name == "Permanent");
+                var permanentFolderChildren = await graphClient
+                   .Sites[_sharePointSiteId]
+                   .Drives[_driveId]
+                   .Items[permanentFolder.Id]
+                   .Children
+                   .Request()
+                   .GetAsync();
+                var permanentFolderNames = permanentFolderChildren.Select(x => x.Name).ToList();
+                if (!permanentFolderNames.Contains("Long-Term Planning Documents"))
+                {
+                    _logging.Log($"The following Client does not have a the Long-Term Planning Documents folder: {clientName}");
+                    continue;
+                }
+                var client = filesToMove.Where(x => x.EntityName == folder.Key);
+                foreach (var item in client)
+                {
+                    try
+                    {
+                        clientName = item.EntityName;
+                        fileName = item.FileName;
+
+                        var sourceFile = await graphClient
+                            .Sites[_sharePointSiteId]
+                            .Drives[_driveId]
+                            .Items[folder.Value]
+                            .ItemWithPath($"/Permanent/Long-Term Correspondence/{item.FileName}")
+                            .Request()
+                            .GetAsync();
+
+                        var targetFile = await graphClient
+                          .Sites[_sharePointSiteId]
+                          .Drives[_driveId]
+                          .Items[folder.Value]
+                          .ItemWithPath($"/Permanent/Long-Term Planning Documents/")
+                          .Request()
+                          .GetAsync();
+                        // Define the destination folder path and update the parentReference for each file
+                        var destinationItemReference = new ItemReference
+                        {
+                            Id = targetFile.Id
+                        };
+                        // Move the file by updating its parentReference
+                        await graphClient
+                            .Sites[_sharePointSiteId]
+                            .Drives[_driveId]
+                            .Items[sourceFile.Id]
+                            .Request()
+                            .UpdateAsync(new DriveItem
+                            {
+                                ParentReference = destinationItemReference,
+                                Name = item.FileName
+                            });
+                        Console.WriteLine($"Files moved successfully. Client - {clientName}  --- File - {fileName}");
+
+                    }
+                    catch (ServiceException ex)
+                    {
+                        Console.WriteLine($"Error moving files: {ex.Message} - Client - {clientName} - File - {fileName}");
+                    }
+                }
+            }
+
+        }
+
+        public void GetXMLFolderDiff()
+        {
+            string path = @"\\SILO\CCHExport\Raw Zip Files";
+            List<string> directories = System.IO.Directory.GetFiles(path, "*.zip").ToList();
+            List<string> xmlFileList = new List<string>();
+            foreach (var dir in directories)
+            {
+                xmlFileList.Add(dir.Split("\\").LastOrDefault().Split(".zip")[0]);
+            }
+            var clientFiles = _db.ClientFiles.ToList();
+            var xmlFiles = clientFiles.Select(x => x.XMLFIle).Distinct().ToList();
+            var diff = xmlFileList.Except(xmlFiles).ToList();
+            foreach (var file in diff)
+            {
+                Console.WriteLine(file);
+            }
+        }
+
+        public void GetClientFolderDiff()
+        {
+            string noZohoIdPath = @"\\SILO\CCHExport\\NoZohoId";
+            string accountsPath = @"\\SILO\CCHExport\\All Client Export\\Accounts";
+            string contactsPath = @"\\SILO\CCHExport\\All Client Export\\Contacts";
+            List<string> noZohoDirectories = System.IO.Directory.GetDirectories(noZohoIdPath).ToList();
+            List<string> accountsDirectories = System.IO.Directory.GetDirectories(accountsPath).ToList();
+            List<string> contactsDirectories = System.IO.Directory.GetDirectories(contactsPath).ToList();
+            List<string> clients = new List<string>();
+            foreach (var dir in noZohoDirectories)
+            {
+                clients.Add(dir.Split("\\").LastOrDefault().Split(" - ")[0]);
+            }
+            foreach (var dir in accountsDirectories)
+            {
+                clients.Add(dir.Split("\\").LastOrDefault().Split(" (")[0]);
+            }
+            foreach (var dir in contactsDirectories)
+            {
+                clients.Add(dir.Split("\\").LastOrDefault().Split(" (")[0]);
+            }
+            var clientFiles = _db.ClientFiles.ToList();
+            var clientNames = clientFiles.Select(x => x.EntityName).Distinct().ToList();
+            var diff = clients.Distinct().Except(clientNames).ToList();
+            foreach (var file in diff)
+            {
+                Console.WriteLine(file);
+            }
         }
 
         public async Task GetAllFoldersInParentFolder()
@@ -115,7 +267,7 @@ namespace FileSorter.Helpers
             int skipFoldersCount = skipFolders.Count();
             try
             {
-                for(var i = 0; i < skipFoldersCount; i++)
+                for (var i = 0; i < skipFoldersCount; i++)
                 {
                     var childFolder = await graphClient
                         .Sites[_sharePointSiteId]
