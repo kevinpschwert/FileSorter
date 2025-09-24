@@ -32,10 +32,10 @@ namespace FileSorter.Controllers
         [HttpPost]
         public async Task<IActionResult> UploadFiles([FromBody] List<string> files)
         {
-            var data = await _unzipFiles.ExtractData(files);
-            //UploadZohoClientMapping uploadZohoClientMapping = new UploadZohoClientMapping(_db);
-            //uploadZohoClientMapping.UploadCsv();
-            //var data = new List<GroupedData>();
+            //var data = await _unzipFiles.ExtractData(files);
+            UploadZohoClientMapping uploadZohoClientMapping = new UploadZohoClientMapping(_db);
+            uploadZohoClientMapping.UploadCsv();
+            var data = new List<GroupedData>();
             return PartialView("~/Views/Home/Partials/GroupedClientData.cshtml", data);
         }
 
