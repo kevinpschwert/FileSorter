@@ -117,14 +117,7 @@ namespace FileSorter.Helpers
 
                     uploadTasks.Add(Task.Run(async () =>
                     {
-                        try
-                        {
-                            await UploadFileToSharePoint(graphClient, fileUpload, isDuplicate);
-                        }
-                        finally
-                        {
-                            semaphore.Release();
-                        }
+                        await UploadFileToSharePoint(graphClient, fileUpload, isDuplicate);
                     }));
                 }
 
@@ -230,7 +223,7 @@ namespace FileSorter.Helpers
                         .Drives[_driveId]
                         //.Items["01PAGKWCM2EEFJAQ62KRB32J7KAFRWZT7Q"] // Use for testing 
                         .Items[fileUpload.ClientFolderId] // Use for Production
-                        //.Root
+                                                          //.Root
                         .ItemWithPath(itemWithPath)
                         .CreateUploadSession(new DriveItemUploadableProperties
                         {
