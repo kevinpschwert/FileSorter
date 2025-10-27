@@ -117,7 +117,14 @@ namespace FileSorter.Helpers
 
                     uploadTasks.Add(Task.Run(async () =>
                     {
-                          await UploadFileToSharePoint(graphClient, fileUpload, isDuplicate);
+                        try
+                        {
+                            await UploadFileToSharePoint(graphClient, fileUpload, isDuplicate);
+                        }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
                     }));
                 }
 
