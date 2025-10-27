@@ -219,6 +219,7 @@ namespace FileSorter.Helpers
                     _logging.Log(ex.Message, _clientFile, _fileName, xmlFile);
                 }
             }
+            _db.SaveChanges();
             return sharePointFileList;
         }
 
