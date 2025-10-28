@@ -30,21 +30,21 @@ body {
 
 /* Drop Area Styles */
 #drop-area {
-    border: 2px dashed #004F63;
-    background-color: #F4F4F4;
+    border: 2px dashed #C8102E;
+    background-color: #FFFFFF;
     padding: 30px;
     border-radius: 10px;
     transition: background-color 0.3s, border-color 0.3s;
 }
 
 #drop-area:hover {
-    background-color: #E6F7FA; /* Light teal shade for hover effect */
-    border-color: #003F51;
+    background-color: #FFE5EA; /* Light red shade for hover effect */
+    border-color: #A10B22;
 }
 
 .my-form p {
     font-size: 16px;
-    color: #004F63;
+    color: #C8102E;
     margin-bottom: 20px;
 }
 
@@ -59,7 +59,7 @@ body {
     padding: 10px 20px;
     font-size: 16px;
     color: white;
-    background-color: #004F63;
+    background-color: #C8102E;
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -67,7 +67,7 @@ body {
 }
 
 .button:hover {
-    background-color: #003F51;
+    background-color: #A10B22;
 }
 
 #fileElem {
@@ -76,16 +76,16 @@ body {
 
 /* Uploaded Files List Styles */
 #uploadFilesDiv {
-    background-color: #F4F4F4;
+    background-color: #FFFFFF;
     padding: 20px;
     border-radius: 10px;
-    border: 1px solid #004F63;
+    border: 1px solid #C8102E;
     height: 100%;
 }
 
 #uploadFilesDiv p {
     font-size: 16px;
-    color: #004F63;
+    color: #C8102E;
     margin-bottom: 10px;
 }
 
@@ -95,7 +95,7 @@ body {
 }
 
 #uploadFiles li {
-    background-color: #E6F7FA;
+    background-color: #FFE5EA;
     margin: 5px 0;
     padding: 10px;
     border-radius: 5px;
@@ -104,7 +104,7 @@ body {
 
 /* Upload Button Styles */
 #uploadFilesBtn {
-    background-color: #004F63;
+    background-color: #C8102E;
     color: white;
     border: none;
     padding: 10px 20px;
@@ -121,12 +121,12 @@ body {
 }
 
 #uploadFilesBtn:not(:disabled):hover {
-    background-color: #003F51;
+    background-color: #A10B22;
 }
 
 #dropAreaDiv {
     margin-top: 3rem;
-    background-color: #c9f1f1;
+    background-color: #FFFFFF;
     padding: 1rem 0;
     position: relative;
 }
@@ -148,7 +148,7 @@ body {
 
 /* Accordion Styles */
 .accordion {
-    background-color: #004F63; /* Dark teal for a professional look */
+    background-color: #C8102E; /* Bold red for contrast */
     color: white;
     cursor: pointer;
     padding: 20px;
@@ -163,17 +163,17 @@ body {
 }
 
     .accordion:hover {
-        background-color: #003F51; /* Slightly darker teal on hover */
+        background-color: #A10B22; /* Slightly darker red on hover */
     }
 
 /* Panel Styles */
 .panel {
-    background-color: #F4F4F4; /* Light grey for a clean contrast */
+    background-color: #FFFFFF; /* White for a clean contrast */
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.2s ease-out;
     border-radius: 0 0 5px 5px;
-    border: 1px solid #004F63;
+    border: 1px solid #C8102E;
     border-top: none;
 }
 
@@ -210,7 +210,7 @@ body {
 }
 
 .sub-class {
-    background-color: #004F63;
+    background-color: #C8102E;
     color: white;
     cursor: pointer;
     width: 100%;
